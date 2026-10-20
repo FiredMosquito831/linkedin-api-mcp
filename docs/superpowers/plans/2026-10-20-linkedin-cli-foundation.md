@@ -162,9 +162,11 @@ test('an unknown status or group is an error, not an empty list', () => {
 - Consumes: none. Accepts an injected `fetch` that defaults to `globalThis.fetch`.
 - Produces:
   - `export class LinkedInApiError extends Error` with `status: number`, `retryAfter: string | null` (the `Retry-After` header as LinkedIn sent it), and `body: unknown` (parsed JSON when possible, otherwise the raw text).
-  - `export function createClient({ accessToken, fetch = globalThis.fetch, baseUrl = 'https://api.linkedin.com' })`, returning `{ request(path, { method = 'GET', body } = {}), getIdentity() }`.
-    - `request` resolves to the parsed JSON, or to `null` for HTTP 204. It throws `LinkedInApiError` for any non-2xx status and never retries.
+  - `export function createClient({ accessToken, fetch = globalThis.fetch, baseUrl = 'https://api.linkedin.com' })`, returning `{ getIdentity() }` only. The returned object has no generic request method.
     - `getIdentity()` calls `GET /v2/userinfo` and resolves to the body, with fields `sub`, `name`, `email`, and `picture`.
+  - `export async function sendRequest(options, path, requestOptions = {})`, with `options` = `{ accessToken, fetch, baseUrl }` and `requestOptions` = `{ method = 'GET', body }`. It is the transport behind `getIdentity`. It is exported for tests only, and `src/index.js` does not re-export it.
+    - It throws `TypeError` when `accessToken` is missing or empty, and when `path` does not start with `/`. It strips trailing slashes from `baseUrl` before joining the URL.
+    - Request-style calls (`sendRequest`) resolve to the parsed JSON, or to `null` for HTTP 204 or an empty 2xx body. They throw `LinkedInApiError` for any non-2xx status, and they never retry.
 
 Implementation: `init.headers` is a plain object. It always carries `Authorization: Bearer <token>` and `Accept: application/json`. It carries `Linkedin-Version` and `X-Restli-Protocol-Version` only when `path` starts with `/rest/`. It carries `Content-Type: application/json` only when a body is given, and the body is JSON-encoded.
 
@@ -394,5 +396,4 @@ This cannot run here, because it needs your LinkedIn app and token. Exact portal
 
 1. In the LinkedIn developer portal, create an app. Add the Sign In with OpenID Connect and Share on LinkedIn products, and add the redirect URL the portal asks for.
 2. In the app's Auth tab, use the OAuth 2.0 token generator with scopes `openid`, `profile`, and `email`. Generate a token. It lasts 60 days.
-3. In PowerShell, run `$env:LINKEDIN_ACCESS_TOKEN = "<token>"; node bin/linkedin.js auth login`, then `node bin/linkedin.js auth status`, then `node bin/linkedin.js me`. Expected: `Token saved.`, then `Logged in as <name> (<sub>).`, then the identity JSON.
-4. Clear the variable afterwards with `Remove-Item Env:LINKEDIN_ACCESS_TOKEN`.
+3. Copy the token to the clipboard. In PowerShell, run `Get-Clipboard | node bin/linkedin.js auth login`, then `node bin/linkedin.js auth status`, then `node bin/linkedin.js me`. Expected: `Token saved.`, then `Logged in as <name> (<sub>).`, then the identity JSON. Never type the token on a command line, because PSReadLine saves command lines to history.
