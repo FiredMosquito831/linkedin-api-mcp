@@ -47,7 +47,10 @@ export function createClient({ accessToken, fetch = globalThis.fetch, baseUrl = 
         body: parseJsonOrText(text),
       });
     }
-    return response.status === 204 ? null : JSON.parse(text);
+    if (response.status === 204 || text === '') {
+      return null;
+    }
+    return JSON.parse(text);
   }
 
   return {

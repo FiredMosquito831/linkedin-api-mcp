@@ -46,3 +46,53 @@ test('204 resolves to null', async () => {
   const fetch = async () => new Response(null, { status: 204 });
   assert.equal(await createClient({ accessToken: 'tok', fetch }).request('/rest/posts/x', { method: 'DELETE' }), null);
 });
+
+test('a 201 with an empty body resolves to null', async () => {
+  const fetch = async () => new Response(null, { status: 201 });
+  assert.equal(await createClient({ accessToken: 'tok', fetch }).request('/rest/posts', { method: 'POST', body: {} }), null);
+});
+
+test('a POST body is JSON-encoded and sent as application/json', async () => {
+  let seen;
+  const fetch = async (url, init) => { seen = init; return new Response('{}', { status: 200 }); };
+  await createClient({ accessToken: 'tok', fetch }).request('/rest/posts', { method: 'POST', body: { text: 'hi' } });
+  assert.equal(seen.method, 'POST');
+  assert.equal(seen.body, '{"text":"hi"}');
+  assert.equal(seen.headers['Content-Type'], 'application/json');
+});
+
+test('a GET sends neither a body nor a Content-Type', async () => {
+  let seen;
+  const fetch = async (url, init) => { seen = init; return new Response('{}', { status: 200 }); };
+  await createClient({ accessToken: 'tok', fetch }).request('/v2/userinfo');
+  assert.equal(seen.method, 'GET');
+  assert.equal(seen.body, undefined);
+  assert.equal(seen.headers['Content-Type'], undefined);
+});
+
+test('a non-JSON error body is kept as text in LinkedInApiError.body', async () => {
+  const fetch = async () => new Response('<html>Bad gateway</html>', { status: 502 });
+  await assert.rejects(
+    createClient({ accessToken: 'tok', fetch }).request('/v2/userinfo'),
+    (err) => err instanceof LinkedInApiError && err.status === 502 && err.body === '<html>Bad gateway</html>',
+  );
+});
+
+test('a baseUrl override changes the request URL', async () => {
+  let seenUrl;
+  const fetch = async (url) => { seenUrl = url; return new Response('{}', { status: 200 }); };
+  await createClient({ accessToken: 'tok', fetch, baseUrl: 'http://localhost:9999' }).request('/v2/userinfo');
+  assert.equal(seenUrl, 'http://localhost:9999/v2/userinfo');
+});
+
+test('uses globalThis.fetch when no fetch is injected', async (t) => {
+  let seen;
+  t.mock.method(globalThis, 'fetch', async (url, init) => {
+    seen = { url, init };
+    return new Response('{"sub":"abc"}', { status: 200 });
+  });
+  const identity = await createClient({ accessToken: 'tok' }).getIdentity();
+  assert.equal(seen.url, 'https://api.linkedin.com/v2/userinfo');
+  assert.equal(seen.init.headers.Authorization, 'Bearer tok');
+  assert.deepEqual(identity, { sub: 'abc' });
+});
