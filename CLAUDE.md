@@ -27,7 +27,7 @@ Commands:
 - A JavaScript package, managed through npm, that gives the user a CLI and an importable JS API to automate their own LinkedIn account across its surfaces, for example profile management, posts, likes, comments, messages and replies.
 - "Without abuse" is a hard requirement. Automation must stay within LinkedIn's terms and rate limits: no scraping at scale, and no bulk or spam messaging or connection requests. The research in `research_notes/` sets the boundaries.
 - Official endpoints only. Write commands wait on Q1 and Q2 of the research report in `reports/LinkedIn CLI automation without abuse.md`.
-- Architecture is undecided. Record decisions here once made (official API vs. unofficial tooling, CLI framework, OAuth flow, token storage).
+- Decided: official LinkedIn endpoints only; commander for the CLI; @napi-rs/keyring for token storage. Open: the OAuth flow (Q4, Q6, Q7 of the research report).
 
 ## Working rules
 
