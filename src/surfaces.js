@@ -243,7 +243,7 @@ export const SURFACES = Object.freeze([
   Object.freeze({
     id: 'job-posting',
     group: 'gap',
-    name: 'job posting',
+    name: 'job posting beyond the catalog listing',
     access: 'not-researched',
     terms: 'not-assessed',
     status: 'not-researched',
@@ -252,7 +252,7 @@ export const SURFACES = Object.freeze([
   Object.freeze({
     id: 'sales-navigator',
     group: 'gap',
-    name: 'Sales Navigator',
+    name: 'Sales Navigator beyond its approval rule',
     access: 'not-researched',
     terms: 'not-assessed',
     status: 'not-researched',
