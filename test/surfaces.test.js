@@ -18,6 +18,12 @@ test('status counts match the table', () => {
   assert.equal(findSurfaces({ status: 'not-researched' }).length, 6);
 });
 
+test('group counts match the table', () => {
+  assert.equal(findSurfaces({ group: 'member' }).length, 18);
+  assert.equal(findSurfaces({ group: 'company' }).length, 4);
+  assert.equal(findSurfaces({ group: 'gap' }).length, 6);
+});
+
 test('an unknown status or group is an error, not an empty list', () => {
   assert.throws(() => findSurfaces({ status: 'maybe' }), RangeError);
   assert.throws(() => findSurfaces({ group: 'bots' }), RangeError);

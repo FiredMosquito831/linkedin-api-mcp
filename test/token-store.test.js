@@ -18,6 +18,11 @@ test('save trims whitespace and newlines', () => {
   assert.equal(store.load(), 'abc');
 });
 
+test('save writes under service linkedin-cli and account default', () => {
+  createTokenStore({ Entry: FakeEntry }).save('abc');
+  assert.deepEqual([...FakeEntry.items.keys()], ['linkedin-cli/default']);
+});
+
 test('an empty token is rejected and nothing is stored', () => {
   const store = createTokenStore({ Entry: FakeEntry });
   assert.throws(() => store.save(' \n '), /Token is empty/);

@@ -66,6 +66,12 @@ test('auth login reads LINKEDIN_ACCESS_TOKEN and trims it', async () => {
   assert.equal(deps.store.load(), 'tok');
 });
 
+test('auth login saves LINKEDIN_ACCESS_TOKEN over different piped stdin', async () => {
+  const deps = { ...fakeDeps({ env: { LINKEDIN_ACCESS_TOKEN: 'from-env' } }), stdin: Readable.from(['from-stdin\n']) };
+  assert.equal(await run(['node', 'linkedin', 'auth', 'login'], deps), 0);
+  assert.equal(deps.store.load(), 'from-env');
+});
+
 test('auth login with no token exits 1 and stores nothing', async () => {
   const deps = fakeDeps({});
   assert.equal(await run(['node', 'linkedin', 'auth', 'login'], deps), 1);
@@ -129,6 +135,12 @@ test('auth status with a saved token prints who is logged in', async () => {
   assert.deepEqual(deps.clientTokens, ['tok']);
 });
 
+test('auth status with an identity that has no name prints the subject only', async () => {
+  const deps = fakeDeps({ token: 'tok', identity: { sub: 'abc' } });
+  assert.equal(await run(['node', 'linkedin', 'auth', 'status'], deps), 0);
+  assert.equal(deps.stdout.buf, 'Logged in (abc).\n');
+});
+
 test('me treats a null identity as a failure, not a crash', async () => {
   const deps = fakeDeps({ token: 'tok', identity: null });
   assert.equal(await run(['node', 'linkedin', 'me'], deps), 1);
@@ -189,4 +201,17 @@ test('--help is written to stdout and exits 0', async () => {
   assert.equal(await run(['node', 'linkedin', '--help'], deps), 0);
   assert.match(deps.stdout.buf, /Usage: linkedin/);
   assert.equal(deps.stderr.buf, '');
+});
+
+test('surfaces --group gap prints only the six gap rows', async () => {
+  const deps = fakeDeps({});
+  assert.equal(await run(['node', 'linkedin', 'surfaces', '--group', 'gap'], deps), 0);
+  const ids = deps.stdout.buf.trimEnd().split('\n').map((line) => line.split('\t')[0]);
+  assert.deepEqual(ids, ['groups', 'events', 'newsletters', 'learning', 'job-posting', 'sales-navigator']);
+});
+
+test('surfaces --group bogus exits 1 and names the bad group', async () => {
+  const deps = fakeDeps({});
+  assert.equal(await run(['node', 'linkedin', 'surfaces', '--group', 'bogus'], deps), 1);
+  assert.match(deps.stderr.buf, /Unknown group "bogus"/);
 });

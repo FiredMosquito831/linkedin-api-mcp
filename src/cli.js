@@ -110,7 +110,8 @@ async function me(deps) {
 async function authStatus(deps) {
   const identity = await fetchIdentity(deps);
   if (identity === null) return 1;
-  deps.stdout.write(`Logged in as ${identity.name} (${identity.sub}).\n`);
+  const who = identity.name ? `as ${identity.name} (${identity.sub})` : `(${identity.sub})`;
+  deps.stdout.write(`Logged in ${who}.\n`);
   return 0;
 }
 
