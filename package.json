@@ -1,0 +1,22 @@
+{
+  "name": "linkedin-cli",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "bin": {
+    "linkedin": "bin/linkedin.js"
+  },
+  "exports": {
+    ".": "./src/index.js"
+  },
+  "engines": {
+    "node": ">=22.12.0"
+  },
+  "scripts": {
+    "test": "node --test"
+  },
+  "dependencies": {
+    "@napi-rs/keyring": "2.1.2",
+    "commander": "15.0.0"
+  }
+}
