@@ -2,6 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdtempSync, writeFileSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { pathToFileURL, fileURLToPath } from 'node:url';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
@@ -645,8 +646,8 @@ test('in-memory server close disconnects the transport', async () => {
 test('startMcp stdio boots a real stdio server usable by an SDK client', async () => {
   const operations = makeFakeOperations();
   const startPath = fileURLToPath(new URL('../src/mcp/start.js', import.meta.url));
-  const tmpDir = mkdtempSync(`${tmpdir()}\\mcp-stdio-test-`);
-  const scriptPath = `${tmpDir}\\stdio-entry.mjs`;
+  const tmpDir = mkdtempSync(join(tmpdir(), 'mcp-stdio-test-'));
+  const scriptPath = join(tmpDir, 'stdio-entry.mjs');
   const operationsJson = JSON.stringify(CATALOG);
   writeFileSync(
     scriptPath,
