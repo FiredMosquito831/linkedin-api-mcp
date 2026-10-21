@@ -48,6 +48,9 @@ export function bumpVersion(root, spec) {
   pkg.version = next;
   lock.version = next;
   lock.packages[''].version = next;
+  // The lockfile records the package name too; keep it identical to the manifest.
+  lock.name = pkg.name;
+  lock.packages[''].name = pkg.name;
   plugin.version = next;
   [pkg, lock, plugin].forEach((value, i) => write(files[i], value));
   return { current, next, files };

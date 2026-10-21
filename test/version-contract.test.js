@@ -22,6 +22,8 @@ test('package.json, package-lock.json, and the plugin manifest agree on the vers
   assert.match(pkg.version, /^\d+\.\d+\.\d+$/, 'package version must be X.Y.Z');
   assert.equal(lock.version, pkg.version, 'package-lock.json must match package.json');
   assert.equal(lock.packages?.['']?.version, pkg.version, 'the lockfile root entry must match package.json');
+  assert.equal(lock.name, pkg.name, 'the lockfile name must match package.json');
+  assert.equal(lock.packages?.['']?.name, pkg.name, 'the lockfile root entry name must match package.json');
   assert.equal(plugin.version, pkg.version, 'the plugin manifest must match the npm package version');
 });
 
@@ -44,8 +46,8 @@ test('the bump script moves every versioned file together', async () => {
   const dir = mkdtempSync(join(tmpdir(), 'linkedin-bump-'));
   try {
     mkdirSync(join(dir, '.claude-plugin'), { recursive: true });
-    writeFileSync(join(dir, 'package.json'), JSON.stringify({ version: '0.2.0' }, null, 2));
-    writeFileSync(join(dir, 'package-lock.json'), JSON.stringify({ version: '0.2.0', packages: { '': { version: '0.2.0' } } }, null, 2));
+    writeFileSync(join(dir, 'package.json'), JSON.stringify({ name: 'linkedin-api-mcp', version: '0.2.0' }, null, 2));
+    writeFileSync(join(dir, 'package-lock.json'), JSON.stringify({ name: 'linkedin-api-mcp', version: '0.2.0', packages: { '': { name: 'linkedin-api-mcp', version: '0.2.0' } } }, null, 2));
     writeFileSync(join(dir, '.claude-plugin', 'plugin.json'), JSON.stringify({ version: '0.2.0' }, null, 2));
 
     const result = bumpVersion(dir, 'minor');
@@ -53,6 +55,7 @@ test('the bump script moves every versioned file together', async () => {
     assert.equal(JSON.parse(readFileSync(join(dir, 'package.json'), 'utf8')).version, '0.3.0');
     assert.equal(JSON.parse(readFileSync(join(dir, 'package-lock.json'), 'utf8')).version, '0.3.0');
     assert.equal(JSON.parse(readFileSync(join(dir, 'package-lock.json'), 'utf8')).packages[''].version, '0.3.0');
+    assert.equal(JSON.parse(readFileSync(join(dir, 'package-lock.json'), 'utf8')).name, 'linkedin-api-mcp');
     assert.equal(JSON.parse(readFileSync(join(dir, '.claude-plugin', 'plugin.json'), 'utf8')).version, '0.3.0');
     assert.ok(result.files.every((file) => existsSync(file)));
     const packageBefore = readFileSync(join(dir, 'package.json'), 'utf8');
