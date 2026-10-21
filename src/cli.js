@@ -7,6 +7,7 @@ import { text } from 'node:stream/consumers';
 import { createTokenStore } from './auth/token-store.js';
 import { createClient as createLinkedInClient, LinkedInApiError } from './linkedin/client.js';
 import { findSurfaces } from './surfaces.js';
+import { registerExperimentalCommands } from './experimental/cli.js';
 
 export function defaultDeps() {
   return {
@@ -41,7 +42,7 @@ function buildProgram(deps, setExitCode) {
   // exitOverride and configureOutput are set before any .command() call, because
   // .command() copies them to the subcommand at creation time only.
   const program = new Command('linkedin')
-    .description('Work with your own LinkedIn account through the official API.')
+    .description('Official LinkedIn API tools and opt-in experimental own-account automation.')
     .exitOverride()
     .configureOutput({
       writeOut: (str) => deps.stdout.write(str),
@@ -75,6 +76,7 @@ function buildProgram(deps, setExitCode) {
     .option('--json', 'print the entries as a JSON array')
     .action((options) => setExitCode(surfaces(options, deps)));
 
+  registerExperimentalCommands(program, deps);
   return program;
 }
 

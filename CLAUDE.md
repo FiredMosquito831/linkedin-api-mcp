@@ -11,7 +11,10 @@ Modules:
 - `src/index.js`: the library entry point. It exports `createClient`, `LinkedInApiError`, `createTokenStore`, `SURFACES`, and `findSurfaces`.
 - `src/surfaces.js`: the surface registry, with `SURFACES` and `findSurfaces`.
 - `src/linkedin/client.js`: the LinkedIn API client, with `createClient` and `LinkedInApiError`.
-- `src/auth/token-store.js`: the token in the OS credential store, with `createTokenStore`.
+- `src/auth/token-store.js`: the official OAuth token in the OS credential store, with `createTokenStore`.
+- `src/experimental/browser.js` and `policy.js`: opt-in Playwright session, bounded text extraction, single confirmed UI actions, and a fixed read-only Voyager `me` adapter.
+- `src/experimental/jobs.js`: persistent finite read-job queue, exclusive execution, and an abortable worker. Jobs store action metadata, not credentials or results.
+- `src/experimental/cli.js`: `experimental browser`, `voyager`, `jobs`, `batch`, and `worker`. Every active command requires `--experimental` plus an interactive acknowledgement or explicit `--yes`; browser edits also require `--confirm-action`.
 
 Token storage uses @napi-rs/keyring. Verified on Windows only. Linux is unverified (Q11), and an unsupported platform fails at load.
 
@@ -25,9 +28,11 @@ Commands:
 ## Project goal
 
 - A JavaScript package, managed through npm, that gives the user a CLI and an importable JS API to automate their own LinkedIn account across its surfaces, for example profile management, posts, likes, comments, messages and replies.
-- "Without abuse" is a hard requirement. Automation must stay within LinkedIn's terms and rate limits: no scraping at scale, and no bulk or spam messaging or connection requests. The research in `research_notes/` sets the boundaries.
-- Official endpoints only. Write commands wait on Q1 and Q2 of the research report in `reports/LinkedIn CLI automation without abuse.md`.
-- Decided: official LinkedIn endpoints only; commander for the CLI; @napi-rs/keyring for token storage. Open: the OAuth flow (Q4, Q6, Q7 of the research report).
+- "Without abuse" remains a hard requirement: no bulk/spam outreach, unauthorized private-data access, CAPTCHA bypass, stealth to defeat platform controls, or rate-limit evasion. Stop on checkpoints and throttling; a human completes verification.
+- On 2026-10-21 the user expanded the earlier official-only/no-scheduler scope to experimental own-account browser automation, bounded extraction, internal API reads, and local scheduling/batches/worker. The earlier research records terms/account risks; experimental does not mean compliant or safe.
+- The official client stays identity-only. Experimental UI edits are one explicitly confirmed action per command; queued jobs are restricted to `browser.snapshot`, `browser.extract`, and `voyager.me`. No generic internal-API passthrough.
+- Decided: commander for the CLI; @napi-rs/keyring for official OAuth tokens; Playwright persistent Chromium for experimental manual login. Browser session credentials live in a dedicated profile under `~/.linkedin-api-mcp` (or `LINKEDIN_STATE_DIR`), never in the queue or Git. The directory is sensitive and must not be shared.
+- Official OAuth browser flow remains open (Q4, Q6, Q7 of `reports/LinkedIn CLI automation without abuse.md`).
 
 ## Working rules
 
