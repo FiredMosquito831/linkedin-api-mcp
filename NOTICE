@@ -1,0 +1,19 @@
+linkedin-api-mcp
+Copyright 2026 FiredMosquito831
+
+This product includes software developed by FiredMosquito831
+(https://github.com/FiredMosquito831).
+
+Licensed under the Apache License, Version 2.0. See LICENSE for the full text.
+
+Unofficial access notice
+-------------------------
+The experimental browser and internal-endpoint adapters in this repository talk
+to LinkedIn's own web surfaces. They are not affiliated with, endorsed by, or
+supported by LinkedIn. Automated access of this kind can violate LinkedIn's terms
+and can lead to account restrictions; every operation is gated behind explicit
+opt-in and, for writes, a separate operator approval.
+
+Third-party components are covered by their own licenses; see the dependency
+notices in the published package and https://github.com/FiredMosquito831 for the
+full dependency list.

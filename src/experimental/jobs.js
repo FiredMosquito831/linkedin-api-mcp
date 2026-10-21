@@ -36,6 +36,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { setTimeout as abortableDelay } from 'node:timers/promises';
+import { operation, validateInput } from '../operations/catalog.js';
 
 const SCHEMA_VERSION = 1;
 const STATE_FILE = 'jobs.json';
@@ -48,11 +49,12 @@ const JOB_FIELDS = new Set(['id', 'action', 'runAt', 'status', 'createdAt', 'mes
 
 // Readonly actions only. Anything that writes, messages, or tries to evade
 // detection is rejected both at enqueue time and at execution time.
-const ALLOWED_ACTION_TYPES = Object.freeze(['browser.snapshot', 'browser.extract', 'voyager.me']);
+const ALLOWED_ACTION_TYPES = Object.freeze(['browser.snapshot', 'browser.extract', 'voyager.me', 'operation.read']);
 const ACTION_FIELDS = Object.freeze({
   'browser.snapshot': Object.freeze(['type', 'url']),
   'browser.extract': Object.freeze(['type', 'url', 'selector', 'limit']),
   'voyager.me': Object.freeze(['type']),
+  'operation.read': Object.freeze(['type', 'operation', 'input']),
 });
 const FORBIDDEN_ROUTES = new Set(['login', 'checkpoint', 'authwall']);
 const RUN_AT_RE = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2}(\.\d{1,9})?)?(Z|[+-]\d{2}:\d{2})$/;
@@ -115,6 +117,14 @@ export function validateAction(action) {
   const extra = Object.keys(action).filter((key) => !fields.includes(key));
   if (extra.length > 0) {
     return { error: `action has unexpected fields: ${extra.join(', ')}`, action: null };
+  }
+  if (type === 'operation.read') {
+    try {
+      if (operation(action.operation).access !== 'read') return { error: 'Only read operations may be queued', action: null };
+      return { error: null, action: { type, operation: action.operation, input: validateInput(action.operation, action.input ?? {}) } };
+    } catch {
+      return { error: 'Queued operation or input is invalid', action: null };
+    }
   }
   if (type !== 'voyager.me') {
     const problem = urlProblem(action.url);

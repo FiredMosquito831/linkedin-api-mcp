@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>LinkedIn fixture: profile view</title>
+<style>
+body{font-family:Arial,sans-serif;margin:0}main{padding:12px}button{margin:4px 6px 4px 0;padding:4px 8px}
+[hidden]{display:none !important}
+</style>
+</head>
+<body>
+<main>
+  <h1>Your profile</h1>
+  <section class="card" id="basics">
+    <h2>Basics</h2>
+    <div id="basics-view">
+      <p class="display-headline">Senior Analyst</p>
+      <p class="display-about">Original about text</p>
+      <button id="edit-basics" aria-label="Edit">Edit</button>
+    </div>
+    <div id="basics-edit" hidden>
+      <input aria-label="Headline" id="headline" value="Senior Analyst">
+      <textarea aria-label="About" id="about" rows="3">Original about text</textarea>
+      <button id="done" aria-label="Done">Done</button>
+    </div>
+  </section>
+</main>
+<script>
+(function () {
+  window.__pendingEvents = 0;
+  function emit(type, data) {
+    window.__pendingEvents += 1;
+    fetch('/__fixture-event', { method: 'POST', body: JSON.stringify(Object.assign({ type: type }, data)) })
+      .catch(function () {})
+      .finally(function () { window.__pendingEvents -= 1; });
+  }
+  var view = document.getElementById('basics-view');
+  var edit = document.getElementById('basics-edit');
+  document.getElementById('edit-basics').addEventListener('click', function () {
+    view.hidden = true;
+    edit.hidden = false;
+  });
+  document.getElementById('done').addEventListener('click', function () {
+    var headline = document.getElementById('headline').value;
+    var about = document.getElementById('about').value;
+    document.querySelector('.display-headline').textContent = headline;
+    document.querySelector('.display-about').textContent = about;
+    edit.hidden = true;
+    view.hidden = false;
+    emit('profile.update', { headline: headline, about: about });
+  });
+  fetch('/__state')
+    .then(function (response) { return response.json(); })
+    .then(function (state) {
+      var last = null;
+      (state.events || []).forEach(function (event) {
+        if (event.type === 'profile.update') last = event;
+      });
+      if (last) {
+        document.querySelector('.display-headline').textContent = last.headline;
+        document.querySelector('.display-about').textContent = last.about;
+        document.getElementById('headline').value = last.headline;
+        document.getElementById('about').value = last.about;
+      }
+      window.__fixtureReady = true;
+    })
+    .catch(function () { window.__fixtureReady = true; });
+})();
+</script>
+</body>
+</html>

@@ -1,10 +1,11 @@
 {
-  "name": "linkedin-cli",
-  "version": "0.1.0",
-  "private": true,
+  "name": "@firedmosquito831/linkedin-api-mcp",
+  "version": "0.2.0",
+  "description": "LinkedIn CLI, JavaScript operations library, and MCP server with opt-in experimental browser adapters",
   "type": "module",
   "bin": {
-    "linkedin": "bin/linkedin.js"
+    "linkedin": "bin/linkedin.js",
+    "linkedin-api-mcp": "bin/linkedin-api-mcp.js"
   },
   "exports": {
     ".": "./src/index.js"
@@ -12,12 +13,51 @@
   "engines": {
     "node": ">=22.12.0"
   },
+  "files": [
+    "bin/",
+    "src/",
+    "README.md",
+    "LICENSE",
+    "NOTICE",
+    ".claude-plugin/",
+    ".mcp.json",
+    "skills/",
+    "docs/installation.md",
+    "docs/packaging-recommendations.md",
+    "docs/release.md"
+  ],
   "scripts": {
-    "test": "node --test"
+    "test": "node --test",
+    "pack:check": "npm pack --dry-run",
+    "bump": "node scripts/bump.mjs",
+    "release:check": "node scripts/check-release.mjs",
+    "pack:smoke": "node scripts/pack-smoke.mjs",
+    "prepublishOnly": "npm test"
   },
+  "publishConfig": {
+    "access": "public"
+  },
+  "author": "FiredMosquito831",
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/FiredMosquito831/linkedin-api-mcp.git"
+  },
+  "homepage": "https://github.com/FiredMosquito831/linkedin-api-mcp#readme",
+  "bugs": {
+    "url": "https://github.com/FiredMosquito831/linkedin-api-mcp/issues"
+  },
+  "keywords": [
+    "linkedin",
+    "mcp",
+    "cli",
+    "claude-code-plugin"
+  ],
   "dependencies": {
+    "@modelcontextprotocol/sdk": "1.32.1",
     "@napi-rs/keyring": "2.1.2",
     "commander": "15.0.0",
-    "playwright": "1.64.1"
+    "playwright": "1.64.1",
+    "zod": "4.6.7"
   }
 }

@@ -8,12 +8,16 @@ import { createTokenStore } from './auth/token-store.js';
 import { createClient as createLinkedInClient, LinkedInApiError } from './linkedin/client.js';
 import { findSurfaces } from './surfaces.js';
 import { registerExperimentalCommands } from './experimental/cli.js';
+import { registerOperationCommands } from './operations/cli.js';
+import { accountPaths, createAccountStore, stateDirectory } from './operations/accounts.js';
 
 export function defaultDeps() {
+  const directory = stateDirectory();
+  const account = process.env.LINKEDIN_ACCOUNT || createAccountStore({ directory }).current();
   return {
-    store: createTokenStore(),
+    store: createTokenStore({ account: accountPaths(directory, account).credentialAccount }),
     createClient: ({ accessToken }) => createLinkedInClient({ accessToken }),
-    env: process.env,
+    env: { ...process.env, LINKEDIN_ACCOUNT: account },
     stdin: process.stdin,
     stdout: process.stdout,
     stderr: process.stderr,
@@ -77,6 +81,7 @@ function buildProgram(deps, setExitCode) {
     .action((options) => setExitCode(surfaces(options, deps)));
 
   registerExperimentalCommands(program, deps);
+  registerOperationCommands(program, deps, setExitCode);
   return program;
 }
 

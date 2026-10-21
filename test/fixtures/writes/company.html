@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>LinkedIn fixture: company</title>
+<style>
+body{font-family:Arial,sans-serif;margin:0}main{padding:12px}button{margin:4px 6px 4px 0;padding:4px 8px}
+[hidden]{display:none !important}
+</style>
+</head>
+<body>
+<main id="main"></main>
+<script>
+(function () {
+  window.__pendingEvents = 0;
+  function emit(type, data) {
+    window.__pendingEvents += 1;
+    fetch('/__fixture-event', { method: 'POST', body: JSON.stringify(Object.assign({ type: type }, data)) })
+      .catch(function () {})
+      .finally(function () { window.__pendingEvents -= 1; });
+  }
+  var qs = new URLSearchParams(location.search);
+  var main = document.getElementById('main');
+
+  if (qs.get('restricted') === '1') {
+    main.innerHTML = '<h1>Restricted</h1><p>This feature requires a paid subscription.</p>';
+    window.__fixtureReady = true;
+    return;
+  }
+
+  function button(label) {
+    var node = document.createElement('button');
+    node.setAttribute('aria-label', label);
+    node.textContent = label;
+    return node;
+  }
+  var area = document.createElement('div');
+  area.id = 'follow-area';
+  main.innerHTML = '<h1>Acme Corp</h1>';
+  main.appendChild(area);
+
+  function setFollow() {
+    area.innerHTML = '';
+    area.appendChild(button('Follow'));
+  }
+  function setFollowing() {
+    area.innerHTML = '';
+    var b = button('Following');
+    b.addEventListener('click', function () {
+      area.innerHTML = '';
+      var confirmButton = button('Unfollow');
+      confirmButton.addEventListener('click', function () {
+        setFollow();
+        emit('company.unfollow', {});
+      });
+      area.appendChild(confirmButton);
+    });
+    area.appendChild(b);
+  }
+  function setUnfollowVisible() {
+    area.innerHTML = '';
+    var confirmButton = button('Unfollow');
+    confirmButton.addEventListener('click', function () {
+      setFollow();
+      emit('company.unfollow', {});
+    });
+    area.appendChild(confirmButton);
+  }
+
+  fetch('/__state')
+    .then(function (response) { return response.json(); })
+    .then(function (state) {
+      var last = null;
+      (state.events || []).forEach(function (event) {
+        if (event.type === 'company.follow' || event.type === 'company.unfollow') last = event;
+      });
+      var query = qs.get('state');
+      if (query === 'following') setFollowing();
+      else if (query === 'confirm') setUnfollowVisible();
+      else if (last && last.type === 'company.follow') setFollowing();
+      else if (last && last.type === 'company.unfollow') setFollow();
+      else setFollow();
+      var followButton = area.querySelector('button');
+      if (followButton && followButton.getAttribute('aria-label') === 'Follow') {
+        followButton.addEventListener('click', function () {
+          setFollowing();
+          emit('company.follow', {});
+        });
+      }
+      window.__fixtureReady = true;
+    })
+    .catch(function () { setFollow(); window.__fixtureReady = true; });
+})();
+</script>
+</body>
+</html>

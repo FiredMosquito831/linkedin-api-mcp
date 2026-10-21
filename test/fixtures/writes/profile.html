@@ -1,0 +1,194 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>LinkedIn fixture: profile</title>
+<style>
+body{font-family:Arial,sans-serif;margin:0}main{padding:12px}button{margin:4px 6px 4px 0;padding:4px 8px}
+[hidden]{display:none !important}.role-menu li{list-style:none}
+</style>
+</head>
+<body>
+<main>
+  <h2 id="name">Alice Nguyen</h2>
+  <p class="headline">Software Engineer</p>
+  <div id="actions"></div>
+  <div id="menu"></div>
+  <p id="pending-banner" hidden>Pending</p>
+  <p id="connected-banner" hidden>Connected</p>
+  <div id="note-dialog" role="dialog" aria-label="Send a note" hidden>
+    <textarea aria-label="Note" rows="2"></textarea>
+    <button id="note-send" aria-label="Send">Send</button>
+  </div>
+  <div id="remove-dialog" role="dialog" aria-label="Remove connection" hidden>
+    <p>Remove this connection?</p>
+    <button id="remove-confirm" aria-label="Remove connection">Remove connection</button>
+    <button aria-label="Cancel">Cancel</button>
+  </div>
+  <section id="messenger" role="region" aria-label="Messenger" hidden>
+    <h4 id="recipient">Alice Nguyen</h4>
+    <div class="chat" role="log" aria-label="Chat"></div>
+    <textarea aria-label="Write a message, or search." id="composer"></textarea>
+    <button id="send" aria-label="Send">Send</button>
+  </section>
+</main>
+<script>
+(function () {
+  window.__pendingEvents = 0;
+  function emit(type, data) {
+    window.__pendingEvents += 1;
+    fetch('/__fixture-event', { method: 'POST', body: JSON.stringify(Object.assign({ type: type }, data)) })
+      .catch(function () {})
+      .finally(function () { window.__pendingEvents -= 1; });
+  }
+  var qs = new URLSearchParams(location.search);
+  var name = qs.get('name') || 'Alice Nguyen';
+  document.getElementById('name').textContent = name;
+  var recipient = document.getElementById('recipient');
+  recipient.textContent = qs.get('state') === 'mismatch' ? 'Bob Other' : name;
+  var actions = document.getElementById('actions');
+  var menu = document.getElementById('menu');
+  var dialogs = ['note-dialog', 'remove-dialog'].map(function (id) { return document.getElementById(id); });
+  function closeAll() {
+    dialogs.forEach(function (d) { d.hidden = true; });
+    menu.innerHTML = '';
+  }
+  function addControl(label) {
+    var button = document.createElement('button');
+    button.setAttribute('aria-label', label);
+    button.textContent = label;
+    actions.appendChild(button);
+    return button;
+  }
+  function banner(id) { document.getElementById(id).hidden = true; }
+  function wire(button, handler) { button.addEventListener('click', function () { closeAll(); handler(); }); }
+  function render(state) {
+    closeAll();
+    actions.innerHTML = '';
+    banner('pending-banner');
+    banner('connected-banner');
+    wire(addControl('Message'), function () { document.getElementById('messenger').hidden = false; });
+    if (state === 'default') {
+      wire(addControl('Connect'), function () {
+        stateFor.next = 'pending';
+        render('pending');
+        emit('invitation.send', { note: false });
+      });
+      addControl('More options').addEventListener('click', function () { openMenu(); });
+    }
+    if (state === 'received') {
+      wire(addControl('Accept invitation'), function () {
+        render('connected');
+        emit('invitation.accept', {});
+      });
+      wire(addControl('Ignore invitation'), function () {
+        render('default');
+        emit('invitation.reject', {});
+      });
+      addControl('More options').addEventListener('click', function () { openMenu(); });
+    }
+    if (state === 'pending') {
+      wire(addControl('Withdraw invitation'), function () {
+        render('default');
+        emit('invitation.withdraw', {});
+      });
+      document.getElementById('pending-banner').hidden = false;
+      addControl('More options').addEventListener('click', function () { openMenu(); });
+    }
+    if (state === 'connected') {
+      document.getElementById('connected-banner').hidden = false;
+      addControl('More options').addEventListener('click', function () { openMenu(); });
+    }
+    if (state === 'removed') {
+      wire(addControl('Connect'), function () {
+        render('pending');
+        emit('invitation.send', { note: false });
+      });
+      addControl('Follow');
+      addControl('More options').addEventListener('click', function () { openMenu(); });
+    }
+  }
+  var stateFor = { next: null };
+  function openMenu() {
+    closeAll();
+    menu.innerHTML =
+      '<ul class="role-menu" role="menu">' +
+      '<li role="menuitem" tabindex="0">Send note</li>' +
+      '<li role="menuitem" tabindex="0">Remove connection</li>' +
+      '</ul>';
+    menu.querySelectorAll('li').forEach(function (item) {
+      item.addEventListener('click', function () {
+        closeAll();
+        if (item.textContent === 'Send note') {
+          document.getElementById('note-dialog').hidden = false;
+        }
+        if (item.textContent === 'Remove connection') {
+          document.getElementById('remove-dialog').hidden = false;
+        }
+      });
+    });
+  }
+  document.getElementById('note-send').addEventListener('click', function () {
+    var note = document.querySelector('#note-dialog textarea').value;
+    closeAll();
+    render('pending');
+    emit('invitation.send', { note: note });
+  });
+  document.getElementById('remove-confirm').addEventListener('click', function () {
+    closeAll();
+    render('removed');
+    emit('connection.remove', {});
+  });
+  // Preexisting sent messages arrive through the shared fixture state,
+  // so a duplicate cannot be mistaken for the new send. __fixtureReady is
+  // set only AFTER this render so pre-send snapshots see it.
+  document.getElementById('send').addEventListener('click', function () {
+    var text = document.getElementById('composer').value;
+    if (qs.get('state') !== 'send-noop') {
+      var bubble = document.createElement('p');
+      bubble.className = 'message-text';
+      bubble.textContent = text;
+      document.querySelector('.chat').appendChild(bubble);
+    }
+    document.getElementById('composer').value = '';
+    emit('message.send', { text: text });
+    history.pushState({}, '', '/messaging/thread/777/');
+  });
+
+  fetch('/__state')
+    .then(function (response) { return response.json(); })
+    .then(function (state) {
+      var last = null;
+      (state.events || []).forEach(function (event) {
+        if (['invitation.accept', 'invitation.reject', 'invitation.withdraw', 'invitation.send', 'connection.remove'].indexOf(event.type) !== -1) {
+          last = event;
+        }
+      });
+      var initial = 'default';
+      if (last) {
+        initial = {
+          'invitation.accept': 'connected',
+          'invitation.reject': 'default',
+          'invitation.withdraw': 'default',
+          'invitation.send': 'pending',
+          'connection.remove': 'removed',
+        }[last.type];
+      }
+      var query = qs.get('state');
+      var isStateFlag = query && query !== 'mismatch' && query !== 'send-noop';
+      render(isStateFlag ? query : initial);
+      (state.events || []).forEach(function (event) {
+        if (event.type === 'message.send' && event.text) {
+          var bubble = document.createElement('p');
+          bubble.className = 'message-text';
+          bubble.textContent = event.text;
+          document.querySelector('.chat').appendChild(bubble);
+        }
+      });
+      window.__fixtureReady = true;
+    })
+    .catch(function () { window.__fixtureReady = true; });
+})();
+</script>
+</body>
+</html>

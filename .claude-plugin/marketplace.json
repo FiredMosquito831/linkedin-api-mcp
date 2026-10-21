@@ -1,0 +1,15 @@
+{
+  "name": "linkedin-api-mcp",
+  "owner": {
+    "name": "FiredMosquito831"
+  },
+  "description": "One plugin: a LinkedIn CLI, library, and MCP server. The server is capability-only by default; opt-in experimental mode lists unofficial own-account operations, and write operations are prepared by the server and executed only after separate operator approval in the CLI.",
+  "plugins": [
+    {
+      "name": "linkedin",
+      "description": "Automate your own LinkedIn account: official OAuth API tools, an MCP server that is capability-only until the experimental option lists operations, writes that are prepared then approved in the separate CLI, and an off-by-default experimental mode.",
+      "source": "./",
+      "strict": false
+    }
+  ]
+}

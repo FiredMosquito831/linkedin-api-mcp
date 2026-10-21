@@ -1,0 +1,268 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>LinkedIn fixture: post</title>
+<style>
+body{font-family:Arial,sans-serif;margin:0}main{padding:12px}button{margin:4px 6px 4px 0;padding:4px 8px}
+[hidden]{display:none !important}
+.role-menu li{list-style:none}
+</style>
+</head>
+<body>
+<main>
+  <article id="post" data-view-name="urn:li:activity:100" data-id="urn:li:activity:100">
+    <h1>Your post</h1>
+    <div class="post-text">Original post text about automation</div>
+    <div class="actions">
+      <button id="reaction-btn" aria-label="Like">Like</button>
+      <button id="share-btn" aria-label="Share">Share</button>
+      <button id="comment-btn" aria-label="Write a comment">Comment</button>
+      <button id="menu-btn" aria-label="More options">More</button>
+    </div>
+    <div id="menu"></div>
+    <div id="reaction-picker" role="dialog" aria-label="Reaction picker" hidden>
+      <button data-r="Like" aria-label="Like">Like</button>
+      <button data-r="Celebrate" aria-label="Celebrate">Celebrate</button>
+      <button data-r="Love" aria-label="Love">Love</button>
+      <button data-r="Insightful" aria-label="Insightful">Insightful</button>
+      <button data-r="Funny" aria-label="Funny">Funny</button>
+      <button data-r="Support" aria-label="Support">Support</button>
+    </div>
+    <div id="share-dialog" role="dialog" aria-label="Share post" hidden>
+      <div role="textbox" contenteditable="true" aria-label="Add a caption..." id="share-caption"></div>
+      <button id="share-confirm" aria-label="Post">Post</button>
+    </div>
+    <div id="edit-dialog" role="dialog" aria-label="Edit post" hidden>
+      <div role="textbox" contenteditable="true" aria-label="Edit post" id="edit-text">Original post text about automation</div>
+      <button id="edit-save" aria-label="Save">Save</button>
+    </div>
+    <div id="delete-dialog" role="dialog" aria-label="Delete post" hidden>
+      <p>Delete this post?</p>
+      <button id="delete-confirm" aria-label="Delete post">Delete post</button>
+      <button aria-label="Cancel">Cancel</button>
+    </div>
+    <div id="comment-dialog" role="dialog" aria-label="Write a comment" hidden>
+      <div role="textbox" contenteditable="true" aria-label="Write a comment" id="comment-text"></div>
+      <button id="comment-post" aria-label="Post">Post</button>
+    </div>
+    <div class="comments">
+      <div class="comment" data-view-name="urn:li:comment-urn:200" data-id="urn:li:comment-urn:200">
+        <span class="comment-text">Nice work</span>
+        <button class="reply-btn" data-urn="urn:li:comment-urn:200" aria-label="Reply">Reply</button>
+      </div>
+      <div id="new-comments"></div>
+    </div>
+  </article>
+  <div id="post-gone" hidden><p>This post is no longer available.</p></div>
+</main>
+<script>
+(function () {
+  window.__pendingEvents = 0;
+  function emit(type, data) {
+    window.__pendingEvents += 1;
+    fetch('/__fixture-event', { method: 'POST', body: JSON.stringify(Object.assign({ type: type }, data)) })
+      .catch(function () {})
+      .finally(function () { window.__pendingEvents -= 1; });
+  }
+  var qs = new URLSearchParams(location.search);
+  var main = document.querySelector('main');
+  if (qs.get('state') === 'missing') {
+    main.innerHTML = '<p>Post content</p>';
+    window.__fixtureReady = true;
+    return;
+  }
+  if (qs.get('state') === 'dup') {
+    var dup = document.createElement('button');
+    dup.setAttribute('aria-label', 'Share');
+    dup.textContent = 'Share (duplicate)';
+    document.getElementById('share-btn').after(dup);
+  }
+  var postArticle = document.getElementById('post');
+  var postGone = document.getElementById('post-gone');
+  var deleteLost = qs.get('state') === 'delete-lost';
+  var reactionBtn = document.getElementById('reaction-btn');
+  var currentReaction = 'Like';
+  var reactionActive = false;
+  function setReaction(label, active) {
+    currentReaction = label;
+    reactionActive = active;
+    reactionBtn.setAttribute('aria-label', label);
+    reactionBtn.textContent = label;
+    if (active) reactionBtn.setAttribute('aria-pressed', 'true');
+    else reactionBtn.removeAttribute('aria-pressed');
+  }
+  var reacted = qs.get('reacted');
+  if (reacted) {
+    var reactionLabels = { LIKE: 'Like', CELEBRATE: 'Celebrate', LOVE: 'Love', INSIGHTFUL: 'Insightful', FUNNY: 'Funny', SUPPORT: 'Support' };
+    setReaction(reactionLabels[reacted] ?? reacted, true);
+  }
+
+  var dialogs = ['reaction-picker', 'share-dialog', 'edit-dialog', 'delete-dialog', 'comment-dialog'].map(function (id) {
+    return document.getElementById(id);
+  });
+  var menu = document.getElementById('menu');
+  function closeAll() {
+    dialogs.forEach(function (d) { d.hidden = true; });
+    menu.innerHTML = '';
+  }
+
+  document.getElementById('menu-btn').addEventListener('click', function () {
+    closeAll();
+    menu.innerHTML =
+      '<ul class="role-menu" role="menu">' +
+      '<li role="menuitem" tabindex="0">Copy link</li>' +
+      '<li role="menuitem" tabindex="0">Edit</li>' +
+      '<li role="menuitem" tabindex="0">Delete post</li>' +
+      '</ul>';
+    menu.querySelectorAll('li').forEach(function (item) {
+      item.addEventListener('click', function () {
+        closeAll();
+        if (item.textContent === 'Edit') {
+          document.getElementById('edit-text').textContent = document.querySelector('.post-text').textContent;
+          document.getElementById('edit-dialog').hidden = false;
+        }
+        if (item.textContent === 'Delete post') {
+          document.getElementById('delete-dialog').hidden = false;
+        }
+      });
+    });
+  });
+
+  document.getElementById('edit-save').addEventListener('click', function () {
+    var text = document.getElementById('edit-text').textContent;
+    document.querySelector('.post-text').textContent = text;
+    closeAll();
+    emit('post.edit', { text: text });
+  });
+
+  document.getElementById('delete-confirm').addEventListener('click', function () {
+    emit('post.delete', {});
+    closeAll();
+    if (!deleteLost) {
+      postArticle.style.visibility = 'hidden';
+      postGone.hidden = false;
+    }
+  });
+
+  document.getElementById('share-btn').addEventListener('click', function () {
+    closeAll();
+    document.getElementById('share-dialog').hidden = false;
+  });
+  document.getElementById('share-confirm').addEventListener('click', function () {
+    emit('post.share', { caption: document.getElementById('share-caption').textContent });
+    closeAll();
+  });
+
+  reactionBtn.addEventListener('click', function () {
+    closeAll();
+    document.getElementById('reaction-picker').hidden = false;
+  });
+  document.getElementById('reaction-picker').querySelectorAll('button[data-r]').forEach(function (item) {
+    item.addEventListener('click', function () {
+      var label = item.getAttribute('data-r');
+      if (reactionActive && currentReaction === label) {
+        setReaction('Like', false);
+        emit('reaction.remove', { reaction: label.toUpperCase() });
+      } else {
+        setReaction(label, true);
+        emit('reaction.add', { reaction: label.toUpperCase() });
+      }
+      closeAll();
+    });
+  });
+
+  document.getElementById('comment-btn').addEventListener('click', function () {
+    closeAll();
+    window.__commentMode = 'create';
+    document.getElementById('comment-text').textContent = '';
+    document.getElementById('comment-dialog').hidden = false;
+  });
+  document.querySelectorAll('.reply-btn').forEach(function (button) {
+    button.addEventListener('click', function () {
+      closeAll();
+      window.__commentMode = 'reply';
+      window.__replyParent = button.closest('.comment');
+      document.getElementById('comment-text').textContent = '';
+      document.getElementById('comment-dialog').hidden = false;
+    });
+  });
+  document.getElementById('comment-post').addEventListener('click', function () {
+    var text = document.getElementById('comment-text').textContent;
+    var noop = qs.get('state') === 'noop-comment';
+    if (window.__commentMode === 'create') {
+      if (noop) {
+        // Simulated backend duplicate suppression: nothing is appended.
+      } else {
+        var card = document.createElement('div');
+        card.className = 'comment';
+        var span = document.createElement('span');
+        span.className = 'comment-text';
+        span.textContent = text;
+        card.appendChild(span);
+        var replyBtn = document.createElement('button');
+        replyBtn.className = 'reply-btn';
+        replyBtn.setAttribute('aria-label', 'Reply');
+        replyBtn.textContent = 'Reply';
+        card.appendChild(replyBtn);
+        document.getElementById('new-comments').appendChild(card);
+        replyBtn.addEventListener('click', function () {
+          closeAll();
+          window.__commentMode = 'reply';
+          window.__replyParent = card;
+          document.getElementById('comment-text').textContent = '';
+          document.getElementById('comment-dialog').hidden = false;
+        });
+      }
+      emit('comment.create', { text: text });
+    } else {
+      if (noop) {
+        // Simulated backend duplicate suppression: nothing is appended.
+      } else {
+        var reply = document.createElement('div');
+        reply.className = 'reply';
+        var replySpan = document.createElement('span');
+        replySpan.className = 'comment-text';
+        replySpan.textContent = text;
+        reply.appendChild(replySpan);
+        window.__replyParent.appendChild(reply);
+      }
+      emit('comment.reply', { text: text });
+    }
+    closeAll();
+  });
+
+  // Preexisting comment/reply records arrive through the shared fixture state,
+  // so a page reload (or the initial load) renders them like a real post page.
+  // __fixtureReady is set only AFTER this render so snapshots see them.
+  fetch('/__state')
+    .then(function (response) { return response.json(); })
+    .then(function (state) {
+      var targetCard = document.querySelector('[data-view-name*="urn:li:comment-urn:200"]');
+      (state.events || []).forEach(function (event) {
+        if (event.type === 'comment.create') {
+          var pre = document.createElement('div');
+          pre.className = 'comment';
+          var preSpan = document.createElement('span');
+          preSpan.className = 'comment-text';
+          preSpan.textContent = event.text;
+          pre.appendChild(preSpan);
+          document.getElementById('new-comments').appendChild(pre);
+        }
+        if (event.type === 'comment.reply' && targetCard) {
+          var preReply = document.createElement('div');
+          preReply.className = 'reply';
+          var preReplySpan = document.createElement('span');
+          preReplySpan.className = 'comment-text';
+          preReplySpan.textContent = event.text;
+          preReply.appendChild(preReplySpan);
+          targetCard.appendChild(preReply);
+        }
+      });
+      window.__fixtureReady = true;
+    })
+    .catch(function () { window.__fixtureReady = true; });
+})();
+</script>
+</body>
+</html>

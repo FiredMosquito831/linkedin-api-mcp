@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>LinkedIn fixture: recent activity</title>
+<style>
+body{font-family:Arial,sans-serif;margin:0}main{padding:12px}
+[hidden]{display:none !important}
+</style>
+</head>
+<body>
+<main>
+  <h1>Recent activity</h1>
+  <section class="activity">
+    <article data-view-name="urn:li:activity:100">
+      <a href="https://www.linkedin.com/feed/update/urn:li:activity:100/">View post</a>
+      <p>Old post one</p>
+    </article>
+    <article data-view-name="urn:li:activity:101">
+      <a href="https://www.linkedin.com/feed/update/urn:li:activity:101/">View post</a>
+      <p>Old post two</p>
+    </article>
+    <div id="dynamic"></div>
+  </section>
+</main>
+<script>
+(function () {
+  window.__pendingEvents = 0;
+  var noShare = new URLSearchParams(location.search).get('no-share') === '1';
+  fetch('/__state')
+    .then(function (response) { return response.json(); })
+    .then(function (state) {
+      var wrap = document.getElementById('dynamic');
+      var events = (state.events || []).filter(function (event) {
+        if (event.type === 'post.create') return true;
+        return !noShare && event.type === 'post.share';
+      });
+      events.forEach(function (event, index) {
+        var article = document.createElement('article');
+        if (event.type === 'post.create') {
+          var id = 900 + index;
+          article.setAttribute('data-view-name', 'urn:li:activity:' + id);
+          var link = document.createElement('a');
+          link.href = 'https://www.linkedin.com/feed/update/urn:li:activity:' + id + '/';
+          link.textContent = 'View post';
+          article.appendChild(link);
+          var body = document.createElement('p');
+          body.textContent = event.text || 'Shared media';
+          article.appendChild(body);
+          if (event.image) {
+            var image = document.createElement('img');
+            image.alt = event.image;
+            image.src = 'data:image/gif;base64,R0lGODlhAQABAAAAACw=';
+            article.appendChild(image);
+          }
+        } else {
+          article.setAttribute('data-view-name', 'urn:li:activity:share-' + index);
+          var shareLink = document.createElement('a');
+          shareLink.href = 'https://www.linkedin.com/feed/update/urn:li:activity:100/';
+          shareLink.textContent = 'View post';
+          article.appendChild(shareLink);
+          var caption = document.createElement('p');
+          caption.textContent = 'Shared a post' + (event.caption ? ': ' + event.caption : '');
+          article.appendChild(caption);
+          var excerpt = document.createElement('p');
+          excerpt.textContent = 'Original post text about automation';
+          article.appendChild(excerpt);
+        }
+        wrap.appendChild(article);
+      });
+      window.__fixtureReady = true;
+    })
+    .catch(function () { window.__fixtureReady = true; });
+})();
+</script>
+</body>
+</html>
