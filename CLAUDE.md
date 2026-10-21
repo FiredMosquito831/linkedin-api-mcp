@@ -36,7 +36,7 @@ Commands:
 - `npm run bump -- patch|minor|major|X.Y.Z` (changes package, lockfile, plugin together)
 - `npm run release:check -- vX.Y.Z` (tag/version/metadata guard; no publication)
 
-Release: npm-only, Apache-2.0, following `docs/release.md`. `.github/workflows/ci.yml` tests PRs; `npm.yml` publishes only on an approved published release or manual tag dispatch, using OIDC. Never create releases/tags, publish, or change repository visibility without approval. The repository is public; the release workflow enables provenance for public-source publication. The initial npm publication and trusted-publisher setup are owner steps. MCP version comes from `src/version.js` reading installed `package.json`, not a hardcoded constant.
+Release: npm-only, Apache-2.0, following `docs/release.md`. `.github/workflows/ci.yml` tests PRs/main; `npm.yml` automatically publishes an unpublished version after successful same-repository main-push CI, or from an approved release/manual tag dispatch, using OIDC. Same-version pushes skip publication. Merging a version bump to main can publish automatically after the owner configures npm. Never create releases/tags, publish manually, change visibility, or merge a publish-triggering bump without approval. The repository is public; the release workflow enables provenance for public-source publication. The initial npm publication and trusted-publisher setup are owner steps. MCP version comes from `src/version.js` reading installed `package.json`, not a hardcoded constant.
 
 ## Project goal
 
@@ -44,7 +44,7 @@ Release: npm-only, Apache-2.0, following `docs/release.md`. `.github/workflows/c
 - "Without abuse" remains a hard requirement: no bulk/spam outreach, unauthorized private-data access, CAPTCHA bypass, stealth to defeat platform controls, or rate-limit evasion. Stop on checkpoints and throttling; a human completes verification.
 - On 2026-10-21 the user expanded the earlier official-only/no-scheduler scope to experimental own-account browser automation, bounded extraction, internal API reads, and local scheduling/batches/worker. The earlier research records terms/account risks; experimental does not mean compliant or safe.
 - The official client stays identity-only. Named writes prepare first, then require operator approval of the exact account/payload/digest, then consume before dispatch. Unknown outcomes never retry. Legacy queued jobs remain read-only. No generic internal-API passthrough.
-- Package target: `@firedmosquito831/linkedin-api-mcp` v0.2.0, bin `linkedin` (CLI) and `linkedin-api-mcp` (auto-starts MCP; do not append another `mcp`). No npm publication or GitHub push is implied by local build/testing.
+- Package target: `linkedin-api-mcp` v0.2.0 (unscoped public package; no scope ownership required), bin `linkedin` (CLI) and `linkedin-api-mcp` (auto-starts MCP; do not append another `mcp`). No npm publication or GitHub push is implied by local build/testing.
 - Decided: commander for the CLI; @napi-rs/keyring for official OAuth tokens; Playwright persistent Chromium for experimental manual login. Browser session credentials live in a dedicated profile under `~/.linkedin-api-mcp` (or `LINKEDIN_STATE_DIR`), never in the queue or Git. The directory is sensitive and must not be shared.
 - Official OAuth browser flow remains open (Q4, Q6, Q7 of `reports/LinkedIn CLI automation without abuse.md`).
 

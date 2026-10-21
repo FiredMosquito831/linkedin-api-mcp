@@ -1,5 +1,5 @@
 {
-  "name": "@firedmosquito831/linkedin-api-mcp",
+  "name": "linkedin-api-mcp",
   "version": "0.2.0",
   "description": "LinkedIn CLI, JavaScript operations library, and MCP server with opt-in experimental browser adapters",
   "type": "module",

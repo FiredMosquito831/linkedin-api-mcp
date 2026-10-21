@@ -13,7 +13,7 @@ export function checkRelease(root, tag) {
   if ([pkg.version, lock.version, lock.packages?.['']?.version, plugin.version].some((value) => value !== version)) {
     throw new Error('Release tag, package, lockfile, and plugin versions must match');
   }
-  if (pkg.name !== '@firedmosquito831/linkedin-api-mcp') throw new Error('Unexpected npm package name');
+  if (pkg.name !== 'linkedin-api-mcp') throw new Error('Unexpected npm package name');
   if (pkg.private === true || pkg.publishConfig?.access !== 'public') throw new Error('Package must be explicitly publishable as public');
   if (pkg.repository?.url !== 'git+https://github.com/FiredMosquito831/linkedin-api-mcp.git') throw new Error('Repository metadata must match the trusted publisher repository');
   if (pkg.license !== 'Apache-2.0' || plugin.license !== pkg.license) throw new Error('Package and plugin licenses must match');
