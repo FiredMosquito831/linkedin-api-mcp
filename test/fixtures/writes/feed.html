@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>LinkedIn fixture: feed</title>
+<style>
+body{font-family:Arial,sans-serif;margin:0}main{padding:12px}button{margin:4px 6px 4px 0;padding:4px 8px}
+[hidden]{display:none !important}
+</style>
+</head>
+<body>
+<main>
+  <h1>Home</h1>
+  <button id="composer-open" aria-label="Start a post">Start a post</button>
+  <div id="composer" role="dialog" aria-label="Start a post" hidden>
+    <div role="textbox" contenteditable="true" aria-label="What do you want to talk about?" id="composer-text"></div>
+    <input type="file" aria-label="Add media" id="media-input">
+    <button id="composer-post" aria-label="Post" disabled>Post</button>
+  </div>
+</main>
+<script>
+(function () {
+  window.__pendingEvents = 0;
+  function emit(type, data) {
+    window.__pendingEvents += 1;
+    fetch('/__fixture-event', { method: 'POST', body: JSON.stringify(Object.assign({ type: type }, data)) })
+      .catch(function () {})
+      .finally(function () { window.__pendingEvents -= 1; });
+  }
+  var qs = new URLSearchParams(location.search);
+  var open = document.getElementById('composer-open');
+  var composer = document.getElementById('composer');
+  var textEl = document.getElementById('composer-text');
+  var media = document.getElementById('media-input');
+  var postBtn = document.getElementById('composer-post');
+  if (qs.get('state') === 'dup') {
+    var dup = document.createElement('button');
+    dup.setAttribute('aria-label', 'Start a post');
+    dup.textContent = 'Start a post (duplicate)';
+    open.after(dup);
+  }
+  open.addEventListener('click', function () { composer.hidden = false; });
+  function refreshEnabled() { postBtn.disabled = !(textEl.textContent.trim() || media.files.length); }
+  textEl.addEventListener('input', refreshEnabled);
+  media.addEventListener('change', refreshEnabled);
+  postBtn.addEventListener('click', function () {
+    emit('post.create', { text: textEl.textContent, image: media.files.length ? media.files[0].name : null });
+    composer.hidden = true;
+  });
+  window.__fixtureReady = true;
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,29 @@
+{
+  "name": "linkedin",
+  "displayName": "LinkedIn API & MCP",
+  "version": "0.2.0",
+  "license": "Apache-2.0",
+  "description": "Official LinkedIn API CLI and library plus an MCP server that is capability-only by default: it lists no LinkedIn operations until the experimental option is on. While enabled, read and write operations become visible, and writes only prepare a payload that the operator approves and executes in the separate CLI.",
+  "author": {
+    "name": "FiredMosquito831",
+    "url": "https://github.com/FiredMosquito831"
+  },
+  "homepage": "https://github.com/FiredMosquito831/linkedin-api-mcp",
+  "repository": "https://github.com/FiredMosquito831/linkedin-api-mcp",
+  "keywords": [
+    "linkedin",
+    "mcp",
+    "model-context-protocol",
+    "claude-code",
+    "cli",
+    "own-account-automation"
+  ],
+  "userConfig": {
+    "experimental": {
+      "type": "boolean",
+      "title": "Enable experimental operations",
+      "description": "LinkedIn operations (reads and writes) are listed only while this option is on; by default the server is capability-only and exposes no LinkedIn operations. The option reaches the server as LINKEDIN_EXPERIMENTAL (the boolean is substituted as the string 'true' or 'false'; the gate accepts true or 1, anything else stays off). Writes always still require separate operator approval in the CLI. Unofficial access can restrict the LinkedIn account; turn this on only when you know you want it.",
+      "default": false
+    }
+  }
+}

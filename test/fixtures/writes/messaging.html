@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>LinkedIn fixture: messaging</title>
+<style>
+body{font-family:Arial,sans-serif;margin:0}main{padding:12px}button{margin:4px 6px 4px 0;padding:4px 8px}
+[hidden]{display:none !important}
+</style>
+</head>
+<body>
+<main id="main"></main>
+<script>
+(function () {
+  window.__pendingEvents = 0;
+  function emit(type, data) {
+    window.__pendingEvents += 1;
+    fetch('/__fixture-event', { method: 'POST', body: JSON.stringify(Object.assign({ type: type }, data)) })
+      .catch(function () {})
+      .finally(function () { window.__pendingEvents -= 1; });
+  }
+  var qs = new URLSearchParams(location.search);
+  var main = document.getElementById('main');
+  var isThread = location.pathname.indexOf('/messaging/thread/') === 0;
+  var threadId = isThread ? location.pathname.replace(/\/+$/, '').split('/').pop() : '777';
+
+  if (!isThread) {
+    main.innerHTML =
+      '<h1>Messaging</h1>' +
+      '<ul id="threads">' +
+      '<li data-thread-id="777" id="thread-row" aria-label="Alice Nguyen, Unread">' +
+      '<a href="https://www.linkedin.com/messaging/thread/777/">Alice Nguyen</a>' +
+      '<p>New message: hello</p>' +
+      '</li>' +
+      '</ul>';
+    fetch('/__state')
+      .then(function (response) { return response.json(); })
+      .then(function (state) {
+        var opened = (state.events || []).some(function (event) {
+          return event.type === 'thread.opened' && event.threadId === threadId;
+        });
+        var unread = qs.get('state') !== 'read' && !opened;
+        if (!unread) {
+          document.getElementById('thread-row').setAttribute('aria-label', 'Alice Nguyen');
+        }
+        window.__fixtureReady = true;
+      })
+      .catch(function () { window.__fixtureReady = true; });
+  } else {
+    main.innerHTML =
+      '<h2>Alice Nguyen</h2>' +
+      '<div class="chat" role="log" aria-label="Chat">' +
+      '<p class="message-text">Hi Alice</p>' +
+      '<p class="message-text">Sounds good</p>' +
+      '</div>' +
+      '<textarea aria-label="Write a message, or search." id="composer"></textarea>' +
+      '<button id="send" aria-label="Send">Send</button>';
+    document.getElementById('send').addEventListener('click', function () {
+      var text = document.getElementById('composer').value;
+      if (qs.get('state') !== 'noop-message') {
+        var bubble = document.createElement('p');
+        bubble.className = 'message-text';
+        bubble.textContent = text;
+        document.querySelector('.chat').appendChild(bubble);
+      }
+      document.getElementById('composer').value = '';
+      emit('message.reply', { text: text, threadId: threadId });
+    });
+    // Preexisting identical messages arrive through the shared fixture state.
+    // __fixtureReady is set only AFTER this render so snapshots see them.
+    fetch('/__state')
+      .then(function (response) { return response.json(); })
+      .then(function (state) {
+        (state.events || []).forEach(function (event) {
+          if (event.type === 'message.reply' && event.threadId === threadId && event.text) {
+            var bubble = document.createElement('p');
+            bubble.className = 'message-text';
+            bubble.textContent = event.text;
+            document.querySelector('.chat').appendChild(bubble);
+          }
+        });
+        window.__fixtureReady = true;
+      })
+      .catch(function () { window.__fixtureReady = true; });
+    emit('thread.opened', { threadId: threadId });
+  }
+})();
+</script>
+</body>
+</html>

@@ -74,6 +74,17 @@ test('throttled jobs return failure and leave later reads queued', async (t) => 
   assert.deepEqual(state.jobs.map((job) => job.status).sort(), ['blocked', 'queued']);
 });
 
+test('named read jobs share the operations service and cannot queue a write', async (t) => {
+  const { directory, deps, invoke } = await fixture(t);
+  let operation;
+  deps.operationsFactory = () => ({ call: async (name) => { operation = name; return { success: true, data: { name: 'Fixture' } }; } });
+  assert.equal(await invoke(['jobs', 'add', '--type', 'operation.read', '--operation', 'profile.get', '--at', '2026-01-01T00:00:00Z']), 0);
+  assert.equal(await invoke(['jobs', 'run']), 0);
+  assert.equal(operation, 'profile.get');
+  assert.equal(await invoke(['jobs', 'add', '--type', 'operation.read', '--operation', 'posts.create', '--payload', '{"text":"no"}', '--at', '2026-01-01T00:00:00Z']), 1);
+  assert.equal(JSON.parse(await readFile(join(directory, 'jobs', 'jobs.json'), 'utf8')).jobs.length, 1);
+});
+
 test('unsupported state directory is rejected before local job files are created', async (t) => {
   const { deps, invoke, stderr } = await fixture(t);
   deps.env.LINKEDIN_STATE_DIR = 'relative-directory';

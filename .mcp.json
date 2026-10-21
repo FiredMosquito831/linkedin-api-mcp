@@ -1,0 +1,16 @@
+{
+  "mcpServers": {
+    "linkedin": {
+      "command": "node",
+      "args": [
+        "${CLAUDE_PLUGIN_ROOT}/bin/linkedin.js",
+        "mcp",
+        "--transport",
+        "stdio"
+      ],
+      "env": {
+        "LINKEDIN_EXPERIMENTAL": "${user_config.experimental}"
+      }
+    }
+  }
+}

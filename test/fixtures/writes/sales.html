@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>LinkedIn fixture: sales navigator</title>
+<style>
+body{font-family:Arial,sans-serif;margin:0}main{padding:12px}button{margin:4px 6px 4px 0;padding:4px 8px}
+[hidden]{display:none !important}
+</style>
+</head>
+<body>
+<main id="main"></main>
+<script>
+(function () {
+  window.__pendingEvents = 0;
+  function emit(type, data) {
+    window.__pendingEvents += 1;
+    fetch('/__fixture-event', { method: 'POST', body: JSON.stringify(Object.assign({ type: type }, data)) })
+      .catch(function () {})
+      .finally(function () { window.__pendingEvents -= 1; });
+  }
+  var qs = new URLSearchParams(location.search);
+  var main = document.getElementById('main');
+
+  if (qs.get('restricted') === '1') {
+    main.innerHTML = '<h1>Restricted</h1><p>This feature requires a paid subscription.</p>';
+    window.__fixtureReady = true;
+    return;
+  }
+
+  var name = qs.get('name') || 'Zoe Smith';
+  var paneName = qs.get('state') === 'mismatch' ? 'Ivy Chen' : name;
+  var isThread = location.pathname.indexOf('/sales/threads/') === 0;
+
+  function composerMarkup(idSuffix) {
+    return '<textarea aria-label="Write a message, or search." id="composer' + idSuffix + '"></textarea>' +
+      '<button id="send' + idSuffix + '" aria-label="Send">Send</button>';
+  }
+  function wireSend(idSuffix, eventType) {
+    document.getElementById('send' + idSuffix).addEventListener('click', function () {
+      var text = document.getElementById('composer' + idSuffix).value;
+      var bubble = document.createElement('p');
+      bubble.className = 'message-text';
+      bubble.textContent = text;
+      document.querySelector('.chat').appendChild(bubble);
+      document.getElementById('composer' + idSuffix).value = '';
+      emit(eventType, { text: text });
+    });
+  }
+
+  if (!isThread) {
+    main.innerHTML =
+      '<h2>' + name + '</h2>' +
+      '<p>Lead · Acme Sales Pipeline</p>' +
+      '<button id="open-chat" aria-label="Message">Message</button>' +
+      '<section id="chat-pane" role="region" aria-label="Messenger" hidden>' +
+      '<h4 id="pane-name">' + paneName + '</h4>' +
+      '<div class="chat" role="log" aria-label="Chat"></div>' +
+      composerMarkup('') +
+      '</section>';
+    document.getElementById('open-chat').addEventListener('click', function () {
+      document.getElementById('chat-pane').hidden = false;
+    });
+    wireSend('', 'sales.message.send');
+    window.__fixtureReady = true;
+  } else {
+    main.innerHTML =
+      '<h2>' + name + '</h2>' +
+      '<div class="chat" role="log" aria-label="Chat"><p class="message-text">Existing thread text</p></div>' +
+      composerMarkup('');
+    wireSend('', 'sales.message.reply');
+    window.__fixtureReady = true;
+  }
+})();
+</script>
+</body>
+</html>

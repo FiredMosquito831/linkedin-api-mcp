@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>LinkedIn fixture: me settings</title>
+<style>
+body{font-family:Arial,sans-serif;margin:0}main{padding:12px}button{margin:4px 6px 4px 0;padding:4px 8px}
+[hidden]{display:none !important}
+</style>
+</head>
+<body>
+<main>
+  <h1>Settings</h1>
+  <section class="card">
+    <h2>Professional profile</h2>
+    <p>Edit professional profile</p>
+    <button id="edit-prof" aria-label="Edit professional profile">Edit</button>
+  </section>
+</main>
+<script>
+(function () {
+  window.__pendingEvents = 0;
+  document.getElementById('edit-prof').addEventListener('click', function () {
+    location.href = 'https://www.linkedin.com/profile/view';
+  });
+  window.__fixtureReady = true;
+})();
+</script>
+</body>
+</html>

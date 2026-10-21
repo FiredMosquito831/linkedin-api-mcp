@@ -4,6 +4,8 @@ import { isAbsolute, join } from 'node:path';
 import { createInterface } from 'node:readline/promises';
 import { text } from 'node:stream/consumers';
 import { openExperimentalBrowser } from './browser.js';
+import { accountPaths, createAccountStore } from '../operations/accounts.js';
+import { createOperations } from '../operations/service.js';
 
 const WARNING = 'EXPERIMENTAL: unofficial LinkedIn access can restrict your account. Use only your own account and permitted data. Browser profiles contain session credentials.';
 
@@ -27,7 +29,8 @@ async function gate(options, deps) {
 function stateDirectory(deps) {
   const directory = deps.env.LINKEDIN_STATE_DIR || join(homedir(), '.linkedin-api-mcp');
   if (!isAbsolute(directory)) throw new Error('LINKEDIN_STATE_DIR must be an absolute private directory.');
-  return directory;
+  const selected = deps.env.LINKEDIN_ACCOUNT || createAccountStore({ directory }).current();
+  return accountPaths(directory, selected).root;
 }
 
 function flags(command) {
@@ -64,6 +67,7 @@ async function jobs(deps) {
 }
 
 function jobAction(options) {
+  if (options.type === 'operation.read') return { type: options.type, operation: options.operation, input: JSON.parse(options.payload ?? '{}') };
   if (options.type === 'voyager.me') return { type: options.type };
   const action = { type: options.type, url: options.url };
   if (options.type === 'browser.extract') {
@@ -74,6 +78,14 @@ function jobAction(options) {
 }
 
 async function executeRead(action, options, deps) {
+  if (action.type === 'operation.read') {
+    const directory = deps.env.LINKEDIN_STATE_DIR || join(homedir(), '.linkedin-api-mcp');
+    const selected = deps.env.LINKEDIN_ACCOUNT || createAccountStore({ directory }).current();
+    const api = deps.operationsFactory?.({ stateDirectory: directory, account: selected, experimental: true })
+      ?? createOperations({ stateDirectory: directory, account: selected, experimental: true });
+    print(deps, await api.call(action.operation, action.input));
+    return undefined;
+  }
   return withBrowser(options, deps, async (browser) => {
     let result;
     if (action.type === 'browser.snapshot') result = await browser.snapshot(action);
@@ -143,7 +155,9 @@ export function registerExperimentalCommands(program, deps) {
     });
 
   const queue = experimental.command('jobs').description('Persist finite read actions, not credentials or results.');
-  flags(queue.command('add').requiredOption('--type <type>', 'browser.snapshot, browser.extract, or voyager.me')
+  flags(queue.command('add').requiredOption('--type <type>', 'browser.snapshot, browser.extract, voyager.me, or operation.read')
+    .option('--operation <name>', 'named read operation for operation.read')
+    .option('--payload <json>', 'nonsecret read parameters; use batch files for private queries')
     .requiredOption('--at <timestamp>', 'execution time with timezone')
     .option('--url <url>', 'one LinkedIn page URL').option('--selector <selector>', 'extraction selector').option('--limit <count>', 'extraction cap', '10'))
     .action(async (options) => {
