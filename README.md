@@ -18,7 +18,7 @@ npm run pack:check
 
 See [installation instructions](docs/installation.md) for npm/npx, standalone MCP, and the Claude Code plugin/marketplace, following the packaging patterns in `FiredMosquito831/ase-moodle-mcp` and `FiredMosquito831/google-services-mcps`.
 
-Releases follow the [npm-only release guide](docs/release.md): synchronized package/lock/plugin versions, GitHub release-driven OIDC publication, and direct npm verification. PR CI covers Windows/Linux/macOS and Node 22.12/24; hosted results are unverified until the workflow runs. `npm run pack:smoke` installs and tests the actual tarball locally. The source is Apache-2.0 (`LICENSE` and `NOTICE`). No Python/PyPI release path exists, and merging does not publish.
+Releases follow the [npm-only release guide](docs/release.md): synchronized package/lock/plugin versions, OIDC publication after successful main-push CI or a published GitHub release, and direct npm verification. A new version on `main` publishes automatically after CI once the owner completes npm setup; same-version pushes skip. PR CI covers Windows/Linux/macOS and Node 22.12/24. `npm run pack:smoke` installs and tests the actual tarball locally. The source is Apache-2.0 (`LICENSE` and `NOTICE`). No Python/PyPI release path exists.
 
 The GitHub repository is public. npm publication still requires separate approval; the release workflow can generate provenance from this public source repository.
 
@@ -29,7 +29,7 @@ The GitHub plugin installation route (available once these files are on the defa
 /plugin install linkedin@linkedin-api-mcp
 ```
 
-The future npm package is **`@firedmosquito831/linkedin-api-mcp`**, with two binaries:
+The future npm package is **`linkedin-api-mcp`** (unscoped public package), with two binaries:
 
 - `linkedin`: the CLI.
 - `linkedin-api-mcp`: automatically starts MCP; do **not** append another `mcp` argument.
@@ -171,7 +171,7 @@ Locks are never automatically stolen. If a process crashes, confirm it is no lon
 ## Library
 
 ```js
-import { createOperations } from '@firedmosquito831/linkedin-api-mcp';
+import { createOperations } from 'linkedin-api-mcp';
 
 const operations = createOperations({
   stateDirectory: '/absolute/private/state',

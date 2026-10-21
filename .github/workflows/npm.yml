@@ -1,21 +1,26 @@
 name: npm publish
 
-# Release-driven, npm-only publication. Merging to main does not publish.
+# npm-only publication after successful main-push CI, a published release,
+# or an explicit existing-tag dispatch. Feature branches/PR runs never publish.
 # Trusted publisher: FiredMosquito831 / linkedin-api-mcp / npm.yml, no environment.
-# Auth failures remain red. No long-lived npm token fallback.
 
 on:
+  workflow_run:
+    workflows: [ci]
+    types: [completed]
+    branches: [main]
   release:
     types: [published]
   workflow_dispatch:
     inputs:
       tag:
-        description: "Existing release tag, e.g. v0.2.0"
+        description: "Existing release tag, e.g. v0.2.1"
         required: true
         type: string
 
+# Serialize push/release/manual triggers so they cannot race a publication.
 concurrency:
-  group: npm-publish-${{ github.event.release.tag_name || inputs.tag }}
+  group: npm-publish
   cancel-in-progress: false
 
 permissions:
@@ -23,33 +28,52 @@ permissions:
 
 jobs:
   verify:
-    name: Verify the tagged package
+    name: Verify the publication source
+    if: >-
+      github.event_name != 'workflow_run' ||
+      (github.event.workflow_run.conclusion == 'success' &&
+       github.event.workflow_run.event == 'push' &&
+       github.event.workflow_run.head_branch == 'main' &&
+       github.event.workflow_run.head_repository.full_name == github.repository)
     runs-on: ubuntu-latest
     timeout-minutes: 20
     outputs:
       publish: ${{ steps.registry.outputs.publish }}
+      sha: ${{ steps.source.outputs.sha }}
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0
         with:
-          ref: refs/tags/${{ github.event.release.tag_name || inputs.tag }}
+          ref: ${{ github.event.workflow_run.head_sha || format('refs/tags/{0}', github.event.release.tag_name || inputs.tag) }}
           fetch-depth: 0
+          persist-credentials: false
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
         with:
           node-version: "24"
           cache: npm
-      - name: Verify tag, main ancestry and version contract
+      - name: Verify the exact commit, main ancestry and version contract
+        id: source
         env:
+          EVENT: ${{ github.event_name }}
+          CI_SHA: ${{ github.event.workflow_run.head_sha }}
           TAG: ${{ github.event.release.tag_name || inputs.tag }}
         run: |
           set -euo pipefail
-          node scripts/check-release.mjs "$TAG"
-          git merge-base --is-ancestor HEAD origin/main
-          test "$(git rev-parse HEAD)" = "$(git rev-parse "refs/tags/$TAG^{commit}")"
+          sha="$(git rev-parse HEAD)"
+          git merge-base --is-ancestor "$sha" origin/main
+          if [ "$EVENT" = "workflow_run" ]; then
+            test "$sha" = "$CI_SHA"
+            version="$(node -p 'require("./package.json").version')"
+            node scripts/check-release.mjs "v$version"
+          else
+            node scripts/check-release.mjs "$TAG"
+            test "$sha" = "$(git rev-parse "refs/tags/$TAG^{commit}")"
+          fi
+          echo "sha=$sha" >> "$GITHUB_OUTPUT"
       - run: npm ci
       - run: npx playwright install --with-deps chromium
       - run: npm test
       - run: npm run pack:smoke
-      - name: Check whether this exact version is already published
+      - name: Skip existing versions and refuse registry failures
         id: registry
         run: |
           set -euo pipefail
@@ -82,8 +106,9 @@ jobs:
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0
         with:
-          ref: refs/tags/${{ github.event.release.tag_name || inputs.tag }}
+          ref: ${{ needs.verify.outputs.sha }}
           fetch-depth: 1
+          persist-credentials: false
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
         with:
           node-version: "24"
@@ -91,11 +116,12 @@ jobs:
       - name: Use an npm with trusted publishing support
         run: npm install -g npm@latest
       - name: Recheck the version contract
-        env:
-          TAG: ${{ github.event.release.tag_name || inputs.tag }}
-        run: node scripts/check-release.mjs "$TAG"
+        run: |
+          set -euo pipefail
+          version="$(node -p 'require("./package.json").version')"
+          node scripts/check-release.mjs "v$version"
       - name: Publish directly from verified source (no scripts)
-        # Verification runs in the separate job without id-token permission.
+        # Verification runs separately without id-token permission.
         # No dependency build is needed: this package ships JavaScript source.
         env:
           REPOSITORY_PRIVATE: ${{ github.event.repository.private }}

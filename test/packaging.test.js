@@ -182,7 +182,7 @@ test('the recommended package.json manifest stays consistent', async () => {
   const docs = await read('docs/packaging-recommendations.md');
   const rec = jsonBlocks(docs).filter((value) => Array.isArray(value.files))[0];
 
-  assert.equal(rec.name, '@firedmosquito831/linkedin-api-mcp');
+  assert.equal(rec.name, 'linkedin-api-mcp');
   assert.equal(rec.version, '0.2.0');
   assert.ok(rec.private !== true, 'the package must not stay private');
   assert.equal(rec.publishConfig?.access, 'public');
@@ -226,7 +226,7 @@ test('installation.md documents the expected routes', async () => {
     '/plugin install',
     'claude mcp add',
     'claude mcp add linkedin -s project -- node',
-    '@firedmosquito831/linkedin-api-mcp',
+    'linkedin-api-mcp',
     'npx',
     'linkedin-api-mcp --transport stdio',
     'LINKEDIN_MCP_TOKEN',

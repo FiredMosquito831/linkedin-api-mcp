@@ -1,6 +1,6 @@
 # Installation
 
-Ways to use the LinkedIn CLI, library, and MCP server. The npm package is **not published yet** — every `npm`/`npx` command below works once `@firedmosquito831/linkedin-api-mcp` is published. The GitHub repository is public; marketplace installation uses the files pushed to GitHub and merged into its default branch. The local-clone route works without npm publication.
+Ways to use the LinkedIn CLI, library, and MCP server. The npm package is **not published yet** — every `npm`/`npx` command below works once `linkedin-api-mcp` is published. The GitHub repository is public; marketplace installation uses the files pushed to GitHub and merged into its default branch. The local-clone route works without npm publication.
 
 ## Prerequisites
 
@@ -93,12 +93,12 @@ node bin/linkedin.js mcp --transport streamable-http --port 8765
 The package ships two bins: `linkedin` (the CLI; the `mcp` subcommand starts the server) and `linkedin-api-mcp` (starts the MCP server directly — it **auto-prefixes** the `mcp` subcommand, so pass only its options, for example `--transport stdio`; never add a second `mcp` argument).
 
 ```sh
-npm install -g @firedmosquito831/linkedin-api-mcp
+npm install -g linkedin-api-mcp
 linkedin --help                        # CLI
 linkedin-api-mcp --transport stdio     # MCP server entry (auto mcp)
 
-npx @firedmosquito831/linkedin-api-mcp --help       # runs the MCP entry (name-matching bin)
-npx -p @firedmosquito831/linkedin-api-mcp@0.2.0 linkedin me   # pinned version
+npx linkedin-api-mcp --help       # runs the MCP entry (name-matching bin)
+npx -p linkedin-api-mcp@0.2.0 linkedin me   # pinned version
 ```
 
 Register the installed binary as a user-scope MCP server:

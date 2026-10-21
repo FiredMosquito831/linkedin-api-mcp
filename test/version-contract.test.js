@@ -77,10 +77,17 @@ test('release guards reject mismatched tags and unsafe metadata', async () => {
   assert.throws(() => checkRelease(root, 'v9999.0.0'), /must match/);
 });
 
-test('npm workflow is release-driven, least-privilege, and verifies the registry', () => {
+test('npm workflow publishes only successful main pushes or explicit releases, with registry guards', () => {
   const workflow = readFileSync(join(root, '.github/workflows/npm.yml'), 'utf8');
   assert.match(workflow, /release:\s*\n\s*types: \[published\]/);
-  assert.doesNotMatch(workflow, /^\s*push:/m);
+  assert.doesNotMatch(workflow, /^\s*push:/m, 'publishing waits for completed CI rather than a raw push event');
+  assert.match(workflow, /workflow_run:\s*\n\s*workflows: \[ci\]/);
+  assert.match(workflow, /branches: \[main\]/);
+  assert.match(workflow, /workflow_run\.conclusion == 'success'/);
+  assert.match(workflow, /workflow_run\.event == 'push'/);
+  assert.match(workflow, /workflow_run\.head_repository\.full_name == github\.repository/);
+  assert.match(workflow, /needs\.verify\.outputs\.sha/);
+  assert.match(workflow, /persist-credentials: false/);
   assert.match(workflow, /cancel-in-progress: false/);
   assert.match(workflow, /id-token: write/);
   assert.match(workflow, /check-release\.mjs/);

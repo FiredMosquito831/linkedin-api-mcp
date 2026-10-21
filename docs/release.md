@@ -2,7 +2,9 @@
 
 This project uses **npm only**. The package contains the JavaScript server, CLI, library, and plugin files directly—no Python launcher, wheel, pip, or secondary runtime installer.
 
-The GitHub release selects the source revision to publish. A push or merge to `main` does **not** publish to npm. Do not create a tag, publish a release, or upload a package without explicit approval.
+Once this workflow is merged and the one-time npm setup is complete, every push/merge to `main` is checked by CI. **Successful main-push CI automatically publishes the version in package.json only when it does not already exist on npm.** Published GitHub releases and manual existing-tag dispatches are also supported. Feature-branch pushes and PR checks never publish.
+
+A version bump is required for changed content: npm cannot replace an existing version. Pushing without a bump runs checks but skips publication of that already-published version. Merging a new version to `main` therefore authorizes its automatic publication; do not merge a bump until its contents are ready to be public.
 
 ## One version
 
@@ -37,7 +39,7 @@ npm test
 npm run pack:smoke
 npm login
 npm publish --access public
-npm view @firedmosquito831/linkedin-api-mcp version dist.tarball dist.integrity
+npm view linkedin-api-mcp version dist.tarball dist.integrity
 ```
 
 The interactive login/publish may require 2FA. Keep credentials out of chat, source files, and shell-history literals. The project has no `NPM_TOKEN` workflow fallback.
@@ -86,16 +88,16 @@ Tests use fixtures and local MCP transports. No LinkedIn credentials or live acc
    ```sh
    gh pr merge PR_NUMBER --squash --delete-branch --match-head-commit REVIEWED_HEAD_SHA
    ```
-4. **Record the merged `main` SHA**. Create the GitHub release only after approval:
+4. **Wait for main-push CI and the automatic npm workflow.** It verifies and publishes that exact checked commit if the version is new. An optional approved GitHub release can select the same version for release notes:
    ```sh
    gh release create vX.Y.Z --target main --notes-file release-notes.md
    ```
-   A draft does not fire `release: published`. Publishing the release starts the npm workflow. The tag must select the reviewed merged revision; do not reuse or move an old tag.
+   A published release also starts the npm workflow, which skips the version if the CI-triggered publication already completed. Drafts do not fire `release: published`. The tag must select the reviewed merged revision; do not reuse or move an old tag. No tag or release is created automatically by a main push.
 5. **Inspect the workflow conclusion and the registry**, not just the green badge:
    ```sh
    gh api repos/FiredMosquito831/linkedin-api-mcp/git/ref/tags/vX.Y.Z --jq .object.sha
-   npm view @firedmosquito831/linkedin-api-mcp@X.Y.Z version dist.tarball dist.integrity
-   npm view @firedmosquito831/linkedin-api-mcp dist-tags.latest
+   npm view linkedin-api-mcp@X.Y.Z version dist.tarball dist.integrity
+   npm view linkedin-api-mcp dist-tags.latest
    ```
    For annotated tags, peel the tag object to its commit before comparing with the merge SHA. The workflow verifies the checked-out commit is the tag's commit and belongs to `main` history. Check the published release's notes and tag as well.
 
@@ -105,21 +107,22 @@ No wheel or release asset is required: this npm package ships JavaScript directl
 
 **Verification job, without OIDC permission:**
 
-- Checks out `refs/tags/<tag>`, not an arbitrary branch.
-- Requires `vX.Y.Z` and matching package/lock/plugin versions, repository metadata, public npm access, and license declarations.
-- Confirms the tagged commit is in `origin/main` history.
+- For automatic publication, accepts only a successful `ci` run whose original event was a push to `main` in this same repository. PR/fork runs cannot trigger publication.
+- Checks out the exact successful CI `head_sha`; release/manual runs instead check out `refs/tags/<tag>`.
+- Requires matching package/lock/plugin versions, repository metadata, public npm access, and license declarations. Release/manual runs also require a matching `vX.Y.Z` tag.
+- Confirms the chosen commit is in `origin/main` history and carries that exact source SHA into the publish job.
 - Installs dependencies and Chromium, runs all tests, and installs/smoke-tests the actual tarball outside the checkout.
 - Checks the exact version on npm. Existing version → skip. Only HTTP 404 → absent. Network/auth/server errors fail rather than being mistaken for absence.
 
 **Publish job, with `id-token: write`:**
 
 - Runs only after verification succeeds and the exact version is absent.
-- Checks out the same tag and rechecks the version contract.
+- Checks out the exact verified source SHA and rechecks the version contract.
 - Publishes JavaScript source without installing project dependencies or running package lifecycle scripts in the OIDC-capable job (`--ignore-scripts`). Verification already ran separately.
 - Uses provenance for a public repository, or explicitly disables it for a private one.
 - Queries npm for the exact expected version after publishing, with bounded retries; missing publication is a hard failure.
 
-Per-tag concurrency is never cancelled. An already-published version is a successful no-op. Authentication refusals remain red rather than silently masking a missing release. `prepublishOnly: npm test` also protects manual source-checkout publication; the workflow intentionally bypasses that hook only after its separate verification job.
+Push/release/manual publication runs share a single concurrency group and are never cancelled while publishing, preventing cross-trigger publication races. An already-published version is a successful no-op. Authentication refusals remain red rather than silently masking a missing release. `prepublishOnly: npm test` also protects manual source-checkout publication; the workflow intentionally bypasses that hook only after its separate verification job.
 
 ## Re-run and failure handling
 
