@@ -120,7 +120,7 @@ No wheel or release asset is required: this npm package ships JavaScript directl
 - Checks out the exact verified source SHA and rechecks the version contract.
 - Publishes JavaScript source without installing project dependencies or running package lifecycle scripts in the OIDC-capable job (`--ignore-scripts`). Verification already ran separately.
 - Uses provenance for a public repository, or explicitly disables it for a private one.
-- Queries npm for the exact expected version after publishing, with bounded retries; missing publication is a hard failure.
+- Queries the npm registry version endpoint directly after publishing, without the npm cache, and waits up to ten minutes. The registry replicates a new version asynchronously, so a short wait can report a successful publish as a failure. If the version still is not visible after that, the job fails and says the publish may still be propagating.
 
 Push/release/manual publication runs share a single concurrency group and are never cancelled while publishing, preventing cross-trigger publication races. An already-published version is a successful no-op. Authentication refusals remain red rather than silently masking a missing release. `prepublishOnly: npm test` also protects manual source-checkout publication; the workflow intentionally bypasses that hook only after its separate verification job.
 

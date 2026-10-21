@@ -99,6 +99,10 @@ test('npm workflow publishes only successful main pushes or explicit releases, w
   assert.match(workflow, /--ignore-scripts/);
   assert.match(workflow, /--provenance=false/);
   assert.match(workflow, /Verify the version directly on npm/);
+  assert.match(workflow, /registry\.npmjs\.org/, 'the post-publish check queries the registry directly');
+  assert.match(workflow, /cache-control.*no-cache/, 'the post-publish check must not read a cached response');
+  assert.match(workflow, /attempts = 30/, 'the post-publish check must tolerate registry replication lag');
+  assert.match(workflow, /timeout-minutes: 20/, 'the publish job needs room for the replication wait');
   assert.doesNotMatch(workflow, /secrets\.NPM_TOKEN/);
 });
 
