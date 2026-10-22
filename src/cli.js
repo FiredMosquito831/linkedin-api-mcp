@@ -18,6 +18,7 @@ export function defaultDeps() {
     store: createTokenStore({ account: accountPaths(directory, account).credentialAccount }),
     createClient: ({ accessToken }) => createLinkedInClient({ accessToken }),
     env: { ...process.env, LINKEDIN_ACCOUNT: account },
+    account,
     stdin: process.stdin,
     stdout: process.stdout,
     stderr: process.stderr,
@@ -26,9 +27,13 @@ export function defaultDeps() {
 
 export async function run(argv, deps = defaultDeps()) {
   let exitCode = 0;
-  const program = buildProgram(deps, (code) => {
+  const setExit = (code) => {
     exitCode = code;
-  });
+  };
+  const program = buildProgram(deps, setExit);
+  // Optional command groups load lazily: a missing or broken optional module
+  // must not break the whole CLI, and their dependencies stay out of the hot path.
+  await registerOptionalCommands(program, deps, setExit);
   try {
     await program.parseAsync(argv, { from: 'node' });
     return exitCode;
@@ -39,6 +44,24 @@ export async function run(argv, deps = defaultDeps()) {
     }
     deps.stderr.write(`${error.message}\n`);
     return 1;
+  }
+}
+
+// Each optional group is independent: one that fails to load is reported and
+// skipped, and the rest of the CLI keeps working.
+async function registerOptionalCommands(program, deps, setExit) {
+  const groups = [
+    ['./auth/oauth-cli.js', 'registerOAuthCommands'],
+    ['./install/cli.js', 'registerInstallCommands'],
+    ['./experimental/live-check-cli.js', 'registerLiveCheckCommand'],
+  ];
+  for (const [specifier, exportName] of groups) {
+    try {
+      const module = await import(specifier);
+      if (typeof module[exportName] === 'function') module[exportName](program, deps, setExit);
+    } catch (error) {
+      deps.stderr.write(`Optional command group ${specifier} is unavailable: ${error.message}\n`);
+    }
   }
 }
 
