@@ -57,3 +57,24 @@ Release: npm-only, Apache-2.0, following `docs/release.md`. `.github/workflows/c
 
 - Use only haiku-tier models (`model: "haiku"`) for Agent and subagent calls in this project.
 - Research requests run through the deep-research skill. Notes go to `research_notes/<title>/` and the final report to `reports/<title>.md`. Each request gets its own title and folder; never write into or rename an earlier request's folder.
+
+<!-- working-notes:begin (managed by the working-notes skill; edit inside only through /working-notes) -->
+## How we work in this repo (orchestration)
+
+**Entry points (read in this order at the start of every session):** the newest `HANDOFF-<date>.md` in the repo root → `QUEUE.md` → `WORKING-NOTES.md` (PART I, II.3, II.5, II.6, IV, X, IX). Specs and their binding `USER DECISIONS` blocks live in `specs/`. Verify the live state before relaying anything; report in five lines or fewer; do not dispatch before the user's go.
+
+**Binding rules (the full text is WORKING-NOTES; these are the ones that are never relaxed):**
+1. Discuss before building: read-only investigation → spec with numbered questions + a recommendation each → the user's one-line answers → `USER DECISIONS (<time>)` appended to the spec → ONE implementer. Never dispatch before the user agrees.
+2. Safest, 100 % working, break nothing: change only what is broken, where it is broken; behaviour-preserving work is proven by equality contracts; extend, never narrow an existing mechanism; stop and report if the scope seems to require removing behaviour.
+3. One production PR at a time; one concern per PR and release; at most two agents; **agents run `model: "haiku"`** (see Working rules above); announce every dispatch; every agent keeps `PROGRESS.md` + `HANDOFF.md` in its worktree from the first edit.
+4. The orchestrator verifies every "shipped" claim itself (WORKING-NOTES II.5): merge = tag = default branch, registry tarball integrity, frozen diff empty, security grep 0, workflow states read one by one, any live claim backed by the command's own output. CONFIRMED / UNVERIFIED / NOT DONE, always separated.
+5. Tracking at every PR boundary: `QUEUE.md` (RUNNING / QUEUED / FINISHED / HELD), a release-history row and dated lesson lines in WORKING-NOTES (backup before every edit; line endings preserved), one line per event in `HANDOFF-2026-10-22.md`, a `HANDOFF-<date>.md` before every pause or compaction.
+6. Never touch the user's world: the user's own LinkedIn account (reached through `~/.linkedin-api-mcp/browser-profile` and the OS credential store), `~/.linkedin-api-mcp` itself, autostart/registry, the user PATH, installed tools; never the real installer/uninstaller; never read the profile's `Cookies`/`Local State`, OAuth client secrets, or credential-store entries; scratch runs use temp profiles under `.superpowers/`, fake credentials of the same prefix shape and no linkedin.com navigation; stop only PIDs you started, by exact PID; never delete under `.claude/worktrees/` or `.superpowers/` (list leftovers).
+7. Frozen boundary (`src/experimental/policy.js`, `src/operations/approvals.js`, `src/operations/service.js`, `src/operations/catalog.js`, `src/experimental/challenge.js`, `src/operations/accounts.js`, `src/auth/token-store.js`) and goldens (`test/fixtures/*`) change only as a PR's stated, user-approved purpose, with outcomes proven byte-identical. Never alter retry / fallback / challenge-detection / approval behaviour otherwise; never bypass a CAPTCHA, checkpoint, or rate limit.
+8. Tooling: `node --test` (npm drops unknown flags, so never `npm test -- --flag`); never bare `node -e`, never `-c` one-liners or heredocs into an interpreter, never `sed -i` on tracked files; scripts as files run by path; never two full test gates at once.
+9. Product principles: no invented limits; clamp to capability; unknown ≠ unsupported; everything new opt-in and byte-stable when unset; honest wording; data never lost; general over per-name; no speculative features; docs where the user is.
+10. Live external calls only with the user's consent and a stated budget; a rate-limit answer is inconclusive; a challenge stop is a correct outcome, not a bug to work around.
+
+**Attribution:** commits and PR bodies end with `by FiredMosquito831`.
+<!-- working-notes:end -->
+
