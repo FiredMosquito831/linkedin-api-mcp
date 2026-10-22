@@ -287,6 +287,7 @@ test('file updates are atomic and leave no temp files behind', async (t) => {
   const { definitions, projectDir } = await workspace(t);
   await definitions.opencode.install('project');
   await definitions.opencode.uninstall('project');
+  await definitions.claude.install('project');
   for (const entry of fs.readdirSync(projectDir)) {
     assert.ok(!entry.endsWith('.tmp'), `temp file left behind: ${entry}`);
   }
@@ -295,8 +296,8 @@ test('file updates are atomic and leave no temp files behind', async (t) => {
   }
 });
 
-test('registerInstallCommands wires install, uninstall, doctor, and browser install', async (t) => {
-  const { dir, home, projectDir, calls } = await workspace(t);
+test('registerInstallCommands wires install, uninstall, and browser install; checkEnvironment reports the environment', async (t) => {
+  const { dir, home, projectDir, calls, execute, which } = await workspace(t);
   const stateDirectory = join(dir, 'state');
   const stdout = sink();
   const stderr = sink();
@@ -312,6 +313,8 @@ test('registerInstallCommands wires install, uninstall, doctor, and browser inst
     stderr,
     confirmInstall: async () => true,
     chromiumExecutable: join(dir, 'missing-chromium.exe'),
+    execute,
+    which,
     spawnImpl: async (command, args) => {
       spawns.push([command, args]);
       return { code: 0 };
@@ -331,11 +334,21 @@ test('registerInstallCommands wires install, uninstall, doctor, and browser inst
 
   stdout.value = '';
   await program.parseAsync(['install', 'claude', '--scope', 'project', '--source', 'owner/repo', '--marketplace', 'm1', '--yes'], { from: 'user' });
-  assert.equal(calls[0].command, 'claude', 'the CLI routes execution through the injected runner');
+  const claudeCalls = calls.filter((entry) => entry.command === 'claude');
+  assert.equal(claudeCalls[0].command, 'claude', 'the CLI routes execution through the injected runner');
+  assert.deepEqual(claudeCalls[0].args, ['plugin', 'marketplace', 'add', 'owner/repo', '--scope', 'project']);
   assert.match(stdout.value, /claude\tsettings\tok/);
 
   stdout.value = '';
-  await program.parseAsync(['doctor'], { from: 'user' });
+  // The controller's doctor calls checkEnvironment; this test reports the
+  // environment the same way.
+  const report = await checkEnvironment({
+    env: { LINKEDIN_STATE_DIR: stateDirectory },
+    home,
+    projectDir,
+    chromiumExecutable: join(dir, 'missing-chromium.exe'),
+  });
+  for (const entry of report.checks) stdout.write(`${entry.name}\t${entry.status}\t${entry.detail}\n`);
   assert.match(stdout.value, /chromium\twarn/);
   assert.match(stdout.value, /browser install/);
 
@@ -355,6 +368,8 @@ test('registerInstallCommands wires install, uninstall, doctor, and browser inst
     stdin: Readable.from([]),
     stdout: sink(),
     stderr,
+    execute,
+    which,
     spawnImpl: async (_command, args) => {
       failureSpawns.push(args);
       return { code: 1 };
@@ -362,7 +377,7 @@ test('registerInstallCommands wires install, uninstall, doctor, and browser inst
   }, (value) => { code = value; });
   await failing.parseAsync(['browser', 'install'], { from: 'user' });
   assert.equal(code, 1);
-  assert.ok(!failureSpawns[0].includes('install') || true);
+  assert.ok(failureSpawns[0].includes('install') && failureSpawns[0].includes('chromium'));
 });
 
 test('an unknown install target fails with a validation error', async (t) => {

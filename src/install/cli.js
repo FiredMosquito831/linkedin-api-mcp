@@ -1,5 +1,6 @@
-// Install-surface commands: agent install/uninstall, environment doctor, and
-// the explicit Chromium download.
+// Install-surface commands: agent install/uninstall and the explicit
+// Chromium download. The doctor command is owned by the controller; it calls
+// checkEnvironment from ./doctor.js, which is exported for exactly that.
 //
 // deps may carry home, projectDir, env, the streams, and test doubles for the
 // command runner (execute), PATH lookup (which), install confirmation
@@ -11,7 +12,7 @@ import { homedir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { HARNESSES, harnessDefinitions } from './harnesses.js';
-import { checkEnvironment, installChromium } from './doctor.js';
+import { installChromium } from './doctor.js';
 import { OperationError, exitCode, publicError } from '../operations/errors.js';
 
 const DEFAULT_SOURCE = 'FiredMosquito831/linkedin-api-mcp';
@@ -144,42 +145,11 @@ export function registerInstallCommands(program, deps = {}, setExitCode) {
       }
     });
 
-  const environmentDoctor = async () => {
-    try {
-      const report = await checkEnvironment({
-        env: config.env,
-        home: config.home,
-        projectDir: config.projectDir,
-        chromiumExecutable: config.chromiumExecutable,
-        fetchImpl: config.fetchImpl,
-      });
-      let failed = false;
-      for (const entry of report.checks) {
-        config.stdout.write(`${entry.name}\t${entry.status}\t${entry.detail}\n`);
-        if (entry.status === 'fail') failed = true;
-      }
-      done(failed ? 1 : 0);
-    } catch (error) {
-      fail(error);
-    }
-  };
-
-  // Operation commands already register a `doctor`; Commander rejects a second
-  // command with the same name. Run that existing action first and then print
-  // the install environment checks, so both views stay available.
-  const existingDoctor = program.commands.find((command) => command.name() === 'doctor');
-  if (existingDoctor) {
-    const previous = existingDoctor._actionHandler;
-    existingDoctor.action(async (...args) => {
-      if (typeof previous === 'function') await previous.apply(existingDoctor, args);
-      await environmentDoctor();
-    });
-  } else {
-    program
-      .command('doctor')
-      .description('Check the local install environment; never contacts LinkedIn.')
-      .action(environmentDoctor);
-  }
+  // The `doctor` command is owned by the controller (registered by
+  // src/operations/cli.js); it calls checkEnvironment from ./doctor.js, which
+  // is a superset of that command's checks. This function deliberately does
+  // not register or wrap a second doctor, because Commander rejects duplicate
+  // command names.
 
   const browser = program.command('browser').description('Manage the optional Chromium download.');
   browser

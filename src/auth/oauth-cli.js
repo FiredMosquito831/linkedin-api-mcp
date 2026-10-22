@@ -7,6 +7,7 @@
 // never from a command-line argument.
 
 import { spawn } from 'node:child_process';
+import { createInterface } from 'node:readline/promises';
 import {
   buildAuthorizationUrl,
   exchangeCodeForToken,
@@ -62,11 +63,18 @@ async function loginWithOAuth(options, deps, store) {
   }
   const clientSecret = deps.env.LINKEDIN_CLIENT_SECRET || null;
   const usePkce = options.pkce !== false && !clientSecret;
+  if (!usePkce && !clientSecret) {
+    deps.stderr.write('Without a client secret the flow needs PKCE. Remove --no-pkce, or set LINKEDIN_CLIENT_SECRET.\n');
+    return 1;
+  }
+
+  // One generator, so the state in the URL is the state that is verified.
+  const pkce = generatePkce();
+  const state = pkce.state;
+  const codeVerifier = usePkce ? pkce.codeVerifier : null;
 
   let server = null;
   let redirectUri;
-  let codeVerifier;
-  let state;
   if (options.manual) {
     // No listener: the member copies the redirected URL back.
     redirectUri = deps.env.LINKEDIN_REDIRECT_URI;
@@ -74,21 +82,17 @@ async function loginWithOAuth(options, deps, store) {
       deps.stderr.write('Manual mode needs LINKEDIN_REDIRECT_URI set to a redirect URL registered in your LinkedIn app.\n');
       return 1;
     }
-    state = generatePkce().state;
   } else {
     server = await startCallbackServer({});
     redirectUri = server.url;
-    state = generatePkce().state;
   }
 
-  const pkce = usePkce ? generatePkce() : null;
-  codeVerifier = pkce?.codeVerifier;
   const authorizationUrl = buildAuthorizationUrl({
     clientId,
     redirectUri,
     scope: options.scope,
     state,
-    codeChallenge: pkce?.codeChallenge,
+    codeChallenge: usePkce ? pkce.codeChallenge : null,
     enableExtendedLogin: options.extendedLogin === true,
   });
 
@@ -100,7 +104,7 @@ async function loginWithOAuth(options, deps, store) {
   let code;
   try {
     if (options.manual) {
-      const pasted = await deps.readLine?.('Paste the URL you were redirected to: ');
+      const pasted = await readRedirectUrl(deps);
       if (!pasted) {
         deps.stderr.write('No redirect URL given.\n');
         return 1;
@@ -138,6 +142,18 @@ async function loginWithOAuth(options, deps, store) {
   } catch (error) {
     deps.stderr.write(`${error.message}\n`);
     return 1;
+  }
+}
+
+// Manual mode needs the member to paste back the URL LinkedIn redirected to.
+async function readRedirectUrl(deps) {
+  if (typeof deps.readLine === 'function') return deps.readLine('Paste the URL you were redirected to: ');
+  if (!deps.stdin?.isTTY) return null;
+  const reader = createInterface({ input: deps.stdin, output: deps.stderr });
+  try {
+    return (await reader.question('Paste the URL you were redirected to: ')).trim();
+  } finally {
+    reader.close();
   }
 }
 
