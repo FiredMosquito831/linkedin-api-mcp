@@ -1,4 +1,5 @@
 import { readFile, access } from 'node:fs/promises';
+import { homedir } from 'node:os';
 import { join } from 'node:path';
 import { createInterface } from 'node:readline/promises';
 import { text } from 'node:stream/consumers';
@@ -137,7 +138,26 @@ export function registerOperationCommands(program, deps, setExitCode) {
     const { chromium } = await import('playwright');
     let browserInstalled = true;
     try { await access(chromium.executablePath()); } catch { browserInstalled = false; }
-    print(deps, { schemaVersion: 1, success: true, data: { node: process.version, account: selected, chromiumInstalled: browserInstalled, profileDirectory: paths.profile, liveConnectionChecked: false } });
+    // The install workstream owns the richer environment checks: Node, the
+    // browser, the native keyring, the server module, and the state directory.
+    const { checkEnvironment } = await import('../install/doctor.js');
+    const report = await checkEnvironment({
+      env: deps.env,
+      home: homedir(),
+      projectDir: process.cwd(),
+      chromiumExecutable: chromium.executablePath(),
+    });
+    print(deps, {
+      schemaVersion: 1, success: true,
+      data: {
+        node: process.version,
+        account: selected,
+        chromiumInstalled: browserInstalled,
+        profileDirectory: paths.profile,
+        liveConnectionChecked: false,
+        checks: report.checks,
+      },
+    });
   }));
 
   flags(program.command('mcp').description('Start the local MCP server; no interactive prompts.')
