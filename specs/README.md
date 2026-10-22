@@ -9,4 +9,5 @@ One spec per unit of work, written before an implementer is dispatched, and kept
 
 | Spec | Status |
 |---|---|
-| `challenge-detector.md` | decided + implemented; awaiting commit/PR (QUEUE #1) |
+| `challenge-detector.md` | shipped in 0.3.3 |
+| `read-adapter-repair.md` | written 2026-10-23 by a read-only investigator; **awaiting the user's answers** to its 6 questions (probe budget, family order, empty-state policy, second-account data, Sales 403 timing, Easy Apply) |
