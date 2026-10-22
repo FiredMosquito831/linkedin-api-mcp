@@ -67,6 +67,7 @@ Replace/add the marked keys; everything else stays as is. The JSON block is the 
     ".mcp.json",
     "skills/",
     "docs/installation.md",
+    "docs/live-verification.md",
     "docs/packaging-recommendations.md",
     "docs/release.md"
   ],

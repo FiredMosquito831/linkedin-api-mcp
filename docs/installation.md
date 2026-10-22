@@ -63,6 +63,62 @@ claude plugin uninstall linkedin@linkedin-api-mcp
 claude plugin marketplace remove linkedin-api-mcp
 ```
 
+### What the marketplace install provides, and what it does not
+
+The plugin is one self-contained directory. Installing it from the marketplace gives Claude Code the plugin manifest, the `.mcp.json` that launches the bundled server, `skills/linkedin/SKILL.md`, and the plugin's npm dependencies.
+
+**Chromium is not included.** Playwright 1.64.1 ships no install script, so the browser is a separate one-time download of roughly 150 MB:
+
+```sh
+linkedin browser install
+```
+
+Nothing breaks without it. The MCP server starts, the official tools work, and `linkedin doctor` reports the missing browser as a warning. Only the experimental browser operations need Chromium.
+
+The npm package likewise does not download a browser on install, and it never runs an install script: it is plain JavaScript with no build step, so `npm install -g linkedin-api-mcp` is enough.
+
+## 1b. Installing into other agent harnesses
+
+`linkedin install` registers the MCP server with the harnesses you use, the same way `ase-moodle-mcp` does it:
+
+```sh
+linkedin install                                   # every harness, global scope
+linkedin install claude codex --scope project      # only these two, in this folder
+linkedin uninstall --scope project
+linkedin doctor                                   # what is installed and what is missing
+```
+
+| Harness | Global scope | Project scope |
+|---|---|---|
+| Claude Code | `claude plugin marketplace add` and `claude plugin install` | the same, plus `extraKnownMarketplaces` and `enabledPlugins` in `.claude/settings.json` |
+| Codex | `codex plugin marketplace add` and `codex plugin add` | an `[mcp_servers.linkedin]` table in `.codex/config.toml` |
+| opencode | an `mcp.linkedin` entry in `~/.config/opencode/opencode.json`, plus the skill file | an `mcp.linkedin` entry in `opencode.json` in the project folder |
+| Antigravity | `agy mcp add linkedin -- <command> <args>` | refused: Antigravity has no project scope |
+
+Rules the commands follow:
+
+- A harness whose CLI is not on PATH is reported as `skipped`, never as a failure.
+- Uninstall reverses only what the install added, and never removes a shared marketplace.
+- JSON and TOML files that already exist keep their unrelated keys and tables.
+- Every file write is atomic: a temporary file in the same directory, then a rename.
+- No step output ever contains a token.
+
+From a clone of this repository, `bash scripts/bootstrap.sh` (or `scripts\bootstrap.ps1` on Windows) runs the whole sequence: install the package, download Chromium, register every harness, and print the doctor report. It never contacts LinkedIn.
+
+## 1c. Official browser login
+
+```sh
+export LINKEDIN_CLIENT_ID=your_application_client_id
+export LINKEDIN_CLIENT_SECRET=your_client_secret   # only if your app has one
+linkedin auth login-oauth
+```
+
+This is LinkedIn's documented three-legged Authorization Code flow. The CLI opens LinkedIn's authorization page, receives the code on a local loopback redirect, exchanges it for an access token, and stores that token in the OS credential store. Access tokens last 60 days; a refresh token, when issued, lasts a year, and `linkedin auth refresh` uses it.
+
+Register the redirect URL in your LinkedIn application first. The default is a loopback URL on `127.0.0.1` with an ephemeral port; set `LINKEDIN_REDIRECT_URI` to a registered URL and use `--manual` to paste the redirected URL back instead. When no client secret is set, the flow uses PKCE. The `state` value is always verified.
+
+The client secret is read from the environment only: never a command-line argument, never a file in this repository, never a log line.
+
 ## 2. Project MCP server (no plugin)
 
 The `.mcp.json` at the repository root declares the server with a `${CLAUDE_PLUGIN_ROOT}` path. That variable only resolves when the file is loaded as the **installed plugin's** config; do not assume it works outside the plugin checkout. For `claude mcp` registration (project or user scope), point at the script with a **path to the node script**, ideally absolute, so it survives the working directory:
