@@ -96,3 +96,13 @@ test('quiet mode suppresses results and unknown fields return structured validat
   assert.equal(await invoke(['profile', 'get', '--fields', '__proto__']), 2);
   assert.equal(JSON.parse(deps.stdout.value).error.code, 'VALIDATION_ERROR');
 });
+
+test('approvals approve --yes still requires the exact digest', async (t) => {
+  const { dir, invoke } = await fixture(t);
+  const approvals = createApprovalStore({ directory: dir });
+  const record = approvals.prepare({ operation: 'posts.create', account: 'default', input: { text: 'hello' } });
+  assert.equal(await invoke(['approvals', 'approve', record.id, '--digest', 'wrong', '--yes']), 5);
+  assert.equal(approvals.status(record.id, 'default').status, 'prepared');
+  assert.equal(await invoke(['approvals', 'approve', record.id, '--digest', record.digest, '--yes']), 0);
+  assert.equal(approvals.status(record.id, 'default').status, 'approved');
+});

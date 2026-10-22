@@ -181,3 +181,18 @@ test('disabled operations never open browser and errors have distinct exit codes
   assert.equal(exitCode({ code: 'APPROVAL_REQUIRED', message: 'review' }), 5);
   assert.equal(publicError({ message: 'token SECRET', request: { token: 'SECRET' } }).error.message.includes('SECRET'), false);
 });
+
+test('a pre-dispatch challenge is not reported as an uncertain outcome', async (t) => {
+  const dir = await directory(t);
+  const api = createOperations({ stateDirectory: dir, experimental: true,
+    openSession: async () => ({ close: async () => {} }),
+    writeAdapter: () => ({ execute: async () => { throw Object.assign(new Error('verification'), { code: 'HUMAN_INTERVENTION_REQUIRED' }); } }),
+  });
+  const prepared = await api.prepare('posts.create', { text: 'fixture' });
+  const approvals = createApprovalStore({ directory: dir });
+  approvals.approve(prepared.data.approvalId, { account: 'default', expectedDigest: prepared.data.preview.digest });
+  await assert.rejects(api.execute(prepared.data.approvalId), (error) => error.code === 'HUMAN_INTERVENTION_REQUIRED'
+    && error.completionUnknown !== true
+    && exitCode(error) === 3
+    && publicError(error).error.code === 'AUTH_REQUIRED');
+});

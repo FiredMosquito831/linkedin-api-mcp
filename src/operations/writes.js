@@ -120,7 +120,32 @@ function describeCandidate(candidate) {
  * The first candidate matching exactly one VISIBLE element wins.
  * @throws {OperationError} LAYOUT_UNSUPPORTED on ambiguity/absence.
  */
+// LinkedIn renders asynchronously, so a control can be absent for a moment
+// after navigation. Wait for any candidate to appear before deciding it is
+// missing; an ambiguous match still fails closed immediately.
+async function waitForAnyCandidate(base, candidates, timeout) {
+  const deadline = Date.now() + timeout;
+  for (;;) {
+    for (const candidate of candidates) {
+      const count = await locatorFor(base, candidate).count().catch(() => 0);
+      if (count > 0) return;
+    }
+    if (Date.now() >= deadline) return;
+    await new Promise((resolve) => setTimeout(resolve, 250));
+  }
+}
+
+// Count a control by its aria label first, then by role. The live marketplace
+// and company controls carry aria labels but are excluded from the a11y tree,
+// so a role-only count reports zero for a control that is present.
+async function controlCount(page, name) {
+  const byLabel = await page.getByLabel(name, { exact: true }).count().catch(() => 0);
+  if (byLabel > 0) return byLabel;
+  return page.getByRole('button', { name, exact: true }).count().catch(() => 0);
+}
+
 async function uniqueControl(base, candidates, what, timeout = 8000) {
+  await waitForAnyCandidate(base, candidates, timeout);
   for (const candidate of candidates) {
     const locator = locatorFor(base, candidate);
     const count = await locator.count();
@@ -952,11 +977,17 @@ function buildOperations(session) {
         const url = urlInFamilies(input, COMPANY_FAMILIES, 'companies.follow');
         await nav(url);
         await assertNotAccessRestricted(page, 'company page');
-        const follow = await uniqueControl(page, [C.role('button', 'Follow')], 'company follow control');
+        // The live control is a button with aria-label "Follow" that the
+        // accessibility tree excludes, so the role query alone misses it.
+        const follow = await uniqueControl(page, [
+          C.role('button', 'Follow'),
+          C.label('Follow'),
+          C.css('button[aria-label="Follow"]'),
+        ], 'company follow control');
         ctx.dispatched = true;
         await follow.click();
         await check();
-        const following = await page.getByRole('button', { name: 'Following', exact: true }).count();
+        const following = await controlCount(page, 'Following');
         if (following === 1) return verified(ctx, { companyUrl: url });
         return unknown(ctx, 'Following state was not observed on the company page.', { companyUrl: url });
       },
@@ -970,17 +1001,21 @@ function buildOperations(session) {
         const url = urlInFamilies(input, COMPANY_FAMILIES, 'companies.unfollow');
         await nav(url);
         await assertNotAccessRestricted(page, 'company page');
-        const following = await uniqueControl(page, [C.role('button', 'Following')], 'company following control');
+        const following = await uniqueControl(page, [
+          C.role('button', 'Following'),
+          C.label('Following'),
+          C.css('button[aria-label="Following"]'),
+        ], 'company following control');
         // The click may itself toggle the follow state (or reveal an
         // inline confirm), so mark dispatched before it.
         ctx.dispatched = true;
         await following.click();
-        const confirm = page.getByRole('button', { name: 'Unfollow', exact: true });
+        const confirm = page.locator('button[aria-label="Unfollow"], [role="button"][aria-label="Unfollow"]');
         if ((await confirm.count()) === 1) {
           await confirm.click();
         }
         await check();
-        const restored = await page.getByRole('button', { name: 'Follow', exact: true }).count();
+        const restored = await controlCount(page, 'Follow');
         if (restored === 1) return verified(ctx, { companyUrl: url });
         return unknown(ctx, 'Unfollow was not confirmed on the company page.', { companyUrl: url });
       },
@@ -1021,7 +1056,12 @@ function buildOperations(session) {
       async run(ctx, input) {
         const { headline, about } = input.fields;
         await nav(SETTINGS_URL);
-        const editProfile = await uniqueControl(page, [C.role('button', 'Edit professional profile')], 'profile editor entry');
+        const editProfile = await uniqueControl(page, [
+          C.role('button', 'Edit professional profile'),
+          // Live markup: the entry point is a link carrying the aria label.
+          C.css('a[aria-label="Edit profile"]'),
+          C.label('Edit profile'),
+        ], 'profile editor entry');
         await editProfile.click();
         await page.waitForURL((candidate) => String(candidate).includes('/profile/view'), { timeout: 15000 })
           .catch(() => {});

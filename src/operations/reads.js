@@ -198,6 +198,9 @@ const POST_CARD_SELECTORS = [
   'article.update',
   'li.update',
   '.organization-update',
+  // Only list items that carry a reaction control are posts; the rest of the
+  // feed list is suggested people, ads and module cards.
+  '[data-testid="mainFeed"] [role="listitem"]:has([aria-label^="Reaction button state"])',
   '[data-testid="mainFeed"] [role="listitem"]',
   '[data-testid="mainFeed"] > div',
 ];
@@ -205,6 +208,8 @@ const POST_AUTHOR_SELECTORS = [
   '.update-components-actor-name',
   '.update-shared-card__author-name',
   '[data-anonymize="author"]',
+  // Live markup: the author is the profile link inside the post card.
+  'a[href*="/in/"]',
 ];
 const POST_TEXT_SELECTORS = [
   '.update-components-text',
@@ -214,6 +219,18 @@ const POST_TEXT_SELECTORS = [
 ];
 const POST_TIMESTAMP_SELECTORS = ['.update-components-timestamp', '.update-feed-list__timestamp'];
 const POST_LINK_SELECTOR = 'a[href*="feed/update"], a[href*="posts/"], a[href*="activity"]';
+
+// The first profile link in a card is often the avatar, which has no text, so
+// take the first link that actually renders a name.
+async function authorLinkText(card) {
+  const links = card.locator('a[href*="/in/"]');
+  const total = Math.min(await links.count().catch(() => 0), 5);
+  for (let i = 0; i < total; i += 1) {
+    const text = collapse(await links.nth(i).innerText({ timeout: 2000 }).catch(() => ''));
+    if (text) return text.slice(0, 200);
+  }
+  return null;
+}
 
 async function parsePostCard(card, page) {
   const link = card.locator(POST_LINK_SELECTOR);
@@ -226,7 +243,7 @@ async function parsePostCard(card, page) {
   return {
     id,
     url,
-    author: await textOf(card, POST_AUTHOR_SELECTORS),
+    author: (await textOf(card, POST_AUTHOR_SELECTORS)) ?? await authorLinkText(card),
     postedAt: await readTimestamp(card, POST_TIMESTAMP_SELECTORS),
     text: await textOf(card, POST_TEXT_SELECTORS),
     counters: await readCounters(card),

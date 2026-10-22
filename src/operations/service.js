@@ -89,8 +89,12 @@ export function createOperations({ stateDirectory, account = 'default', experime
         if (outcome === 'unknown') throw new OperationError('OUTCOME_UNKNOWN', 'The action may have completed, but it was not verified. Do not retry automatically.', { completionUnknown: true });
         return envelope(record.operation, result);
       } catch (error) {
-        // If an adapter unexpectedly drops its dispatch marker, treat runtime failures conservatively.
-        if (adapterEntered && !['VALIDATION_ERROR', 'INVALID_INPUT', 'LAYOUT_UNSUPPORTED', 'ACCESS_RESTRICTED', 'APPROVAL_REQUIRED'].includes(error.code)) error.completionUnknown = true;
+        // If an adapter unexpectedly drops its dispatch marker, treat runtime
+        // failures conservatively. The adapter's own verdict wins: it knows
+        // whether the action was dispatched, and a pre-dispatch challenge is
+        // definitely not an uncertain outcome.
+        const preDispatch = ['VALIDATION_ERROR', 'INVALID_INPUT', 'LAYOUT_UNSUPPORTED', 'ACCESS_RESTRICTED', 'APPROVAL_REQUIRED', 'HUMAN_INTERVENTION_REQUIRED', 'AUTH_REQUIRED'].includes(error.code);
+        if (adapterEntered && error.completionUnknown === undefined && !preDispatch) error.completionUnknown = true;
         if (error.code !== 'OUTCOME_UNKNOWN') approvals.complete(approvalId, error.completionUnknown ? 'unknown' : 'failed');
         throw error;
       }
