@@ -190,11 +190,16 @@ function jobIdFromUrl(url) {
 // Shared post-card parsing (posts.list, feed.list, companies.posts, posts.get)
 // ---------------------------------------------------------------------------
 
+// LinkedIn obfuscates its class names, so the live anchors are structural:
+// data-testid, roles and aria labels. The class-based candidates stay for the
+// older markup and for the fixtures.
 const POST_CARD_SELECTORS = [
   'li[data-anonymize="post"]',
   'article.update',
   'li.update',
   '.organization-update',
+  '[data-testid="mainFeed"] [role="listitem"]',
+  '[data-testid="mainFeed"] > div',
 ];
 const POST_AUTHOR_SELECTORS = [
   '.update-components-actor-name',
@@ -205,6 +210,7 @@ const POST_TEXT_SELECTORS = [
   '.update-components-text',
   '.update-shared-feed-content__text',
   '.show-more-less-text__text',
+  '[data-testid="expandable-text-box"]',
 ];
 const POST_TIMESTAMP_SELECTORS = ['.update-components-timestamp', '.update-feed-list__timestamp'];
 const POST_LINK_SELECTOR = 'a[href*="feed/update"], a[href*="posts/"], a[href*="activity"]';
@@ -227,9 +233,24 @@ async function parsePostCard(card, page) {
   };
 }
 
+// An account with no posts or connections is a valid empty result, not a
+// layout failure. Only an explicit empty-state marker counts; a page with
+// neither rows nor the marker still fails closed.
+async function hasEmptyState(page, pattern) {
+  // Read the rendered text rather than per-element matches: LinkedIn splits
+  // counts and labels across nodes, which defeats getByText.
+  const text = await page.locator('main').first().innerText({ timeout: 3000 }).catch(() => '');
+  return pattern.test(text);
+}
+
 async function runPostCards(ctx, page) {
   const items = await findItems(page, POST_CARD_SELECTORS);
-  if (!items) throw layout('No post cards found; this post list layout is not supported.');
+  if (!items) {
+    if (await hasEmptyState(page, /haven.t posted yet|no posts yet|no posts to show|nothing to see for now/i)) {
+      return { items: [], nextCursor: null, empty: true };
+    }
+    throw layout('No post cards found; this post list layout is not supported.');
+  }
   const { start, count, nextCursor } = sliceWindow(await items.count(), ctx);
   const result = [];
   for (let i = 0; i < count; i += 1) result.push(await parsePostCard(items.nth(start + i), page));
@@ -331,6 +352,10 @@ const PROFILE_NAME_SELECTORS = [
   '#profile-header-card .pv-text-body--heading3',
   '.profile-hero__name',
   '#profile-header-card h1',
+  // Live markup: the member name is the first h2 inside the content column,
+  // in an SDUI profile card; no h1 exists on the page.
+  '[componentkey*="profile.card"] h2',
+  'main h2',
 ];
 
 async function runProfileGet(ctx, page) {
@@ -454,11 +479,19 @@ const INBOX_ITEM_SELECTORS = [
   'li.msg-s-listitem',
   'li[class^="msg-s-"]',
   '.messaging-conversations li[class*="msg-s-"]',
+  // Live markup: real conversations are the thread links in the labelled list.
+  // The "new message" stub is excluded, because it is not a conversation.
+  '[aria-label="Conversation List"] a[href*="/messaging/thread/"]:not([href$="/thread/new/"]):not([href*="/thread/new/"])',
 ];
 
 async function parseInboxItems(ctx, page) {
   const items = await findItems(page, INBOX_ITEM_SELECTORS);
-  if (!items) throw layout('No conversation rows found; this messaging layout is not supported.');
+  if (!items) {
+    if (await hasEmptyState(page, /no messages.{0,4}yet|reach out and start a conversation/i)) {
+      return { items: [], nextCursor: null, empty: true };
+    }
+    throw layout('No conversation rows found; this messaging layout is not supported.');
+  }
   const { start, count, nextCursor } = sliceWindow(await items.count(), ctx);
   const result = [];
   for (let i = 0; i < count; i += 1) {
@@ -467,14 +500,22 @@ async function parseInboxItems(ctx, page) {
     const snippet = row.locator('.msg-s-truncate:not(.msg-s-truncate--first-name)');
     const snippetText =
       (await snippet.count()) > 0 ? collapse(await snippet.first().innerText({ timeout: 3000 }).catch(() => '')) : '';
+    // Live rows are the thread links themselves, so fall back to the row's own
+    // text when the named spans are absent.
+    let peer = await textOf(row, ['.msg-s-truncate--first-name', '.msg-s-truncate']);
+    if (!peer) {
+      const own = collapse(await row.innerText({ timeout: 3000 }).catch(() => ''));
+      peer = own ? own.slice(0, 200) : null;
+    }
+    if (!peer) throw layout('Required DOM for conversation peer was not found; this layout is not supported.');
+    // The row is the thread link in the live markup, so read its own href then.
+    let threadHref = (await link.count()) > 0 ? await link.first().getAttribute('href') : null;
+    if (!threadHref) threadHref = await row.getAttribute('href').catch(() => null);
     result.push({
-      peer: await textOf(row, ['.msg-s-truncate--first-name', '.msg-s-truncate'], {
-        required: true,
-        label: 'conversation peer',
-      }),
+      peer,
       snippet: snippetText || null,
       unread: (await row.locator('.msg-s-truncate--unread, .msg-s-new-item-bubble').count()) > 0,
-      threadUrl: (await link.count()) > 0 ? absolutize(page, await link.first().getAttribute('href')) : null,
+      threadUrl: threadHref ? absolutize(page, threadHref) : null,
       lastActivity: await readTimestamp(row, ['.msg-s-truncate__timestamp']),
     });
   }
@@ -525,11 +566,20 @@ const CONNECTION_ITEM_SELECTORS = [
   'li[data-anonymize="connections-list-item"]',
   'li.my-network-card',
   '#connections-list li',
+  // Live markup: the results container is stable even though the row markup is
+  // obfuscated, so accept the list items it holds. A generic `main li` is
+  // deliberately not used: it would match sidebar rows and return junk.
+  '[data-testid="show-results-inline-container"] [class*="mn-connection"]',
 ];
 
 async function runConnectionsList(ctx, page) {
   const items = await findItems(page, CONNECTION_ITEM_SELECTORS);
-  if (!items) throw layout('No connection rows found; this network layout is not supported.');
+  if (!items) {
+    if (await hasEmptyState(page, /0\s*connections|no connections yet|you don.t have any connections/i)) {
+      return { items: [], nextCursor: null, empty: true };
+    }
+    throw layout('No connection rows found; this network layout is not supported.');
+  }
   const { start, count, nextCursor } = sliceWindow(await items.count(), ctx);
   const result = [];
   for (let i = 0; i < count; i += 1) {
@@ -586,11 +636,18 @@ function buildSearchUrl(route, { query, cursor, origin }) {
   return url.href;
 }
 
-const SEARCH_ITEM_SELECTOR = 'li.search-results__list-item';
+const SEARCH_ITEM_SELECTORS = [
+  'li.search-results__list-item',
+  // Live job results carry a job id on the card itself.
+  '[data-occludable-job-id]',
+  '[data-job-id]',
+];
 const SEARCH_TITLE_SELECTORS = [
   '.entity-result__title-text',
   '.search-result__entity-name',
   '.job-card-list__title',
+  // Live markup: the job title is the link text to the job page.
+  'a[href*="/jobs/view/"]',
 ];
 const SEARCH_SNIPPET_SELECTORS = [
   '.entity-result__summary',
@@ -599,7 +656,7 @@ const SEARCH_SNIPPET_SELECTORS = [
 ];
 
 async function runSearch(ctx, page) {
-  const items = await findItems(page, [SEARCH_ITEM_SELECTOR]);
+  const items = await findItems(page, SEARCH_ITEM_SELECTORS);
   if (!items) {
     if (await page.getByText(/no results/i).count() > 0) {
       return { items: [], nextCursor: null, query: ctx.query, empty: true };
@@ -644,6 +701,8 @@ const COMPANY_NAME_SELECTORS = [
   '.org-company-header__title',
   '.org-header__title',
   '[data-test-id="org-header"] h1',
+  // Live markup: the company name is the page's only h1.
+  'main h1',
 ];
 
 function companySlug(url) {
@@ -685,8 +744,21 @@ function normalizeCompanyPostsUrl(url) {
 // the apply link's href attribute.
 // ---------------------------------------------------------------------------
 
-const JOB_CARD_SELECTORS = ['li.job-card', '.job-card', '.job-card-container', 'li[class*="job-card"]'];
-const JOB_TITLE_SELECTORS = ['.job-card-list__title', '.job-card-bubble-title', '.job-card-container__job-title'];
+const JOB_CARD_SELECTORS = [
+  'li.job-card',
+  '.job-card',
+  '.job-card-container',
+  'li[class*="job-card"]',
+  // Live markup: job cards expose an id attribute instead of named classes.
+  '[data-occludable-job-id]',
+  '[data-job-id]',
+];
+const JOB_TITLE_SELECTORS = [
+  '.job-card-list__title',
+  '.job-card-bubble-title',
+  '.job-card-container__job-title',
+  'a[href*="/jobs/view/"]',
+];
 
 async function parseJobCard(card, page) {
   const link = card.locator('a[href*="/jobs/"]');
@@ -959,8 +1031,10 @@ const OPS = {
     run: runInboxSearch,
   },
   'connections.list': {
-    families: ['/my-network/'],
-    defaultUrl: `${LINKEDIN_ORIGIN}/my-network/navigate/`,
+    // Live route is /mynetwork/invite-connect/connections/; the older
+    // /my-network/ path stays accepted for older markup and fixtures.
+    families: ['/my-network/', '/mynetwork/'],
+    defaultUrl: `${LINKEDIN_ORIGIN}/mynetwork/invite-connect/connections/`,
     run: runConnectionsList,
   },
   'invitations.received': {

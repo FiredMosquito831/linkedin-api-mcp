@@ -157,6 +157,20 @@ test('login rejects external redirects and throttling before prompting', async (
   }
 });
 
+test('login without a terminal waits for the session cookie instead of prompting', async (t) => {
+  const signedIn = await fixture(t, { redirect: 'https://www.linkedin.com/feed/' });
+  const result = await signedIn.browser.login({ waitForSessionMs: 1000 });
+  assert.match(result.message, /saved/);
+
+  const signedOut = await fixture(t, { redirect: 'https://www.linkedin.com/feed/', cookies: [] });
+  await assert.rejects(signedOut.browser.login({ waitForSessionMs: 100 }), /authenticated/);
+});
+
+test('login needs a confirmation callback or a session timeout', async (t) => {
+  const { browser } = await fixture(t);
+  await assert.rejects(browser.login({}), /confirmation callback or a session timeout/);
+});
+
 test('login needs an authenticated cookie before reporting success', async (t) => {
   const { browser } = await fixture(t, { redirect: 'https://www.linkedin.com/feed/', cookies: [] });
   await assert.rejects(browser.login({ waitForUser: async () => {} }), /authenticated/);

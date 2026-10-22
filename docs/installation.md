@@ -109,13 +109,18 @@ From a clone of this repository, `bash scripts/bootstrap.sh` (or `scripts\bootst
 
 ```sh
 export LINKEDIN_CLIENT_ID=your_application_client_id
-export LINKEDIN_CLIENT_SECRET=your_client_secret   # only if your app has one
+export LINKEDIN_CLIENT_SECRET=your_client_secret      # only if your app has one
+export LINKEDIN_REDIRECT_URI=https://your-registered-callback
 linkedin auth login-oauth
 ```
 
-This is LinkedIn's documented three-legged Authorization Code flow. The CLI opens LinkedIn's authorization page, receives the code on a local loopback redirect, exchanges it for an access token, and stores that token in the OS credential store. Access tokens last 60 days; a refresh token, when issued, lasts a year, and `linkedin auth refresh` uses it.
+This is LinkedIn's documented three-legged Authorization Code flow. The CLI opens LinkedIn's authorization page, you approve it, and LinkedIn redirects to the registered callback. Paste that redirected URL back into the terminal and the CLI exchanges the code for an access token, then stores the token in the OS credential store. Access tokens last 60 days; a refresh token, when issued, lasts a year, and `linkedin auth refresh` uses it.
 
-Register the redirect URL in your LinkedIn application first. The default is a loopback URL on `127.0.0.1` with an ephemeral port; set `LINKEDIN_REDIRECT_URI` to a registered URL and use `--manual` to paste the redirected URL back instead. When no client secret is set, the flow uses PKCE. The `state` value is always verified.
+**Register the redirect URL in your app first, in the Auth tab.** LinkedIn allows only **HTTPS** redirect URLs and matches protocol, domain, path, and any query parameters exactly; HTTP URLs are rejected. That is why the default flow pastes the redirected URL instead of listening on a loopback port. For a quick test, register LinkedIn's own suggested `https://oauth.pstmn.io/v1/callback`.
+
+`--loopback` starts a local HTTP callback server instead. Use it only if your app has been configured to accept an HTTP loopback redirect; LinkedIn's documented rule rejects HTTP.
+
+When no client secret is set, the flow uses PKCE. The `state` value is always verified.
 
 The client secret is read from the environment only: never a command-line argument, never a file in this repository, never a log line.
 

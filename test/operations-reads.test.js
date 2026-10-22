@@ -27,6 +27,7 @@ const ROUTES = {
   'https://www.linkedin.com/messaging/': 'messaging.html',
   'https://www.linkedin.com/messaging/thread/urn:li:mp-conversation:1001': 'thread.html',
   'https://www.linkedin.com/my-network/navigate/': 'connections.html',
+  'https://www.linkedin.com/mynetwork/invite-connect/connections/': 'connections.html',
   'https://www.linkedin.com/mynetwork/invitations/': 'invitations.html',
   'https://www.linkedin.com/mynetwork/invitations/outgoing/': 'invitations.html',
   'https://www.linkedin.com/search/results/': 'search-people.html',
@@ -586,4 +587,15 @@ test('empty DOM throws LAYOUT_UNSUPPORTED for required readers', async (t) => {
   await code(adapter.execute('connections.status', { url: 'https://www.linkedin.com/in/bob-stone/' }), 'LAYOUT_UNSUPPORTED');
   await code(adapter.execute('inbox.list'), 'LAYOUT_UNSUPPORTED');
   await code(adapter.execute('connections.list'), 'LAYOUT_UNSUPPORTED');
+});
+
+test('inbox.list parses live-style thread links as conversation rows', async (t) => {
+  const session = await openSession(browser, {
+    routes: { 'https://www.linkedin.com/messaging/': 'inbox-links.html' },
+  });
+  t.after(() => session.close());
+  const data = await createReadAdapter(session).execute('inbox.list');
+  assert.equal(data.items.length, 1, 'the "new message" stub is not a conversation');
+  assert.equal(data.items[0].peer, 'Ada Lovelace');
+  assert.match(data.items[0].threadUrl, /\/messaging\/thread\/urn:li:conv:1\/$/);
 });

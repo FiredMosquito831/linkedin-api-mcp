@@ -193,10 +193,13 @@ Manual browser login is required for experimental operations. You enter credenti
 ```sh
 export LINKEDIN_CLIENT_ID=your_application_client_id
 export LINKEDIN_CLIENT_SECRET=your_client_secret   # only if your app has one
+export LINKEDIN_REDIRECT_URI=https://your-registered-callback
 linkedin auth login-oauth
 ```
 
-Register the redirect URL `http://127.0.0.1:<port>/callback` in your LinkedIn application, or set `LINKEDIN_REDIRECT_URI` to a URL you registered and use `--manual` to paste the redirected URL back. The flow uses PKCE when no client secret is set, and `state` is always checked.
+**LinkedIn accepts only HTTPS redirect URLs**, and validates the protocol, domain, path, and any query parameters exactly. A local `http://127.0.0.1` redirect is rejected, so the default flow asks you to paste the redirected URL back rather than listening on a loopback port. For a quick test you can register LinkedIn's own suggested `https://oauth.pstmn.io/v1/callback`.
+
+The flow uses PKCE when no client secret is set, and `state` is always checked. `--loopback` is available only for an app that has been configured to accept an HTTP loopback redirect.
 
 The client secret is read from the environment only. It is never a command-line argument, a file in the repository, or part of a log line.
 
