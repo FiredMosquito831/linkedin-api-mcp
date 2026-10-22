@@ -107,15 +107,23 @@ export function registerOperationCommands(program, deps, setExitCode) {
     if (record.account !== selected) throw new OperationError('APPROVAL_REQUIRED', 'Approval belongs to a different account.');
     print(deps, { approvalId: id, account: selected, operation: record.operation, input: record.input, digest: record.digest, expiresAt: new Date(record.expiresAt).toISOString(), status: record.status });
   }));
-  flags(approvals.command('approve <id>').requiredOption('--digest <sha256>', 'exact digest from the reviewed preview'))
+  flags(approvals.command('approve <id>')
+    .requiredOption('--digest <sha256>', 'exact digest from the reviewed preview')
+    .option('--yes', 'approve without the interactive prompt; the exact --digest is still required'))
     .action(handle(async (id, options) => {
-      if (!deps.stdin.isTTY && !deps.confirmApproval) throw new OperationError('APPROVAL_REQUIRED', 'Approval requires an interactive operator terminal. MCP cannot approve itself.');
+      // An operator still has to grant this, and the exact digest still has to
+      // match the reviewed payload. --yes only removes the typed prompt, so a
+      // scripted verification run can proceed from the operator's own shell.
+      if (!options.yes && !deps.stdin.isTTY && !deps.confirmApproval) {
+        throw new OperationError('APPROVAL_REQUIRED', 'Approval requires an interactive operator terminal, or an explicit --yes with the exact digest. MCP cannot approve itself.');
+      }
       const { paths, selected } = account(deps, options);
       const store = createApprovalStore({ directory: paths.root });
       const record = store.get(id);
       print(deps, { preview: { operation: record.operation, account: record.account, input: record.input }, digest: record.digest });
       let confirmed;
-      if (deps.confirmApproval) confirmed = await deps.confirmApproval(record);
+      if (options.yes) confirmed = true;
+      else if (deps.confirmApproval) confirmed = await deps.confirmApproval(record);
       else {
         const reader = createInterface({ input: deps.stdin, output: deps.stderr });
         try { confirmed = (await reader.question(`Type approve ${id} to authorize this exact action: `)) === `approve ${id}`; }
