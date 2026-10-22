@@ -588,3 +588,14 @@ test('empty DOM throws LAYOUT_UNSUPPORTED for required readers', async (t) => {
   await code(adapter.execute('inbox.list'), 'LAYOUT_UNSUPPORTED');
   await code(adapter.execute('connections.list'), 'LAYOUT_UNSUPPORTED');
 });
+
+test('inbox.list parses live-style thread links as conversation rows', async (t) => {
+  const session = await openSession(browser, {
+    routes: { 'https://www.linkedin.com/messaging/': 'inbox-links.html' },
+  });
+  t.after(() => session.close());
+  const data = await createReadAdapter(session).execute('inbox.list');
+  assert.equal(data.items.length, 1, 'the "new message" stub is not a conversation');
+  assert.equal(data.items[0].peer, 'Ada Lovelace');
+  assert.match(data.items[0].threadUrl, /\/messaging\/thread\/urn:li:conv:1\/$/);
+});

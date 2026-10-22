@@ -500,14 +500,22 @@ async function parseInboxItems(ctx, page) {
     const snippet = row.locator('.msg-s-truncate:not(.msg-s-truncate--first-name)');
     const snippetText =
       (await snippet.count()) > 0 ? collapse(await snippet.first().innerText({ timeout: 3000 }).catch(() => '')) : '';
+    // Live rows are the thread links themselves, so fall back to the row's own
+    // text when the named spans are absent.
+    let peer = await textOf(row, ['.msg-s-truncate--first-name', '.msg-s-truncate']);
+    if (!peer) {
+      const own = collapse(await row.innerText({ timeout: 3000 }).catch(() => ''));
+      peer = own ? own.slice(0, 200) : null;
+    }
+    if (!peer) throw layout('Required DOM for conversation peer was not found; this layout is not supported.');
+    // The row is the thread link in the live markup, so read its own href then.
+    let threadHref = (await link.count()) > 0 ? await link.first().getAttribute('href') : null;
+    if (!threadHref) threadHref = await row.getAttribute('href').catch(() => null);
     result.push({
-      peer: await textOf(row, ['.msg-s-truncate--first-name', '.msg-s-truncate'], {
-        required: true,
-        label: 'conversation peer',
-      }),
+      peer,
       snippet: snippetText || null,
       unread: (await row.locator('.msg-s-truncate--unread, .msg-s-new-item-bubble').count()) > 0,
-      threadUrl: (await link.count()) > 0 ? absolutize(page, await link.first().getAttribute('href')) : null,
+      threadUrl: threadHref ? absolutize(page, threadHref) : null,
       lastActivity: await readTimestamp(row, ['.msg-s-truncate__timestamp']),
     });
   }
