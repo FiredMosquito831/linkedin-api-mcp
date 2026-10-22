@@ -8,7 +8,7 @@ Spec paths are under `specs/`. "User decisions" names the binding block inside t
 
 ## RUNNING
 
-**2026-10-23 — PAUSED before commit.** The detector correction is written and green but **not committed**: branch `fix/visible-challenge-detector` holds `src/experimental/challenge.js` (new), `test/challenge-detector.test.js` (new), `test/operations-session.test.js` (new), and edits to `src/experimental/browser.js`, `src/operations/session.js`, `test/experimental-browser.test.js`, `docs/live-verification.md`, `HANDOFF-2026-10-22.md`. No PR, no push, no bump was authorised. Resume = QUEUED #1.
+**2026-10-23 — PAUSED awaiting the user's go.** The detector correction is **committed locally** on `fix/visible-challenge-detector` as `227ab05` (one commit on top of `main`): `src/experimental/challenge.js` (new), `test/challenge-detector.test.js` (new), `test/operations-session.test.js` (new), and edits to `src/experimental/browser.js`, `src/operations/session.js`, `test/experimental-browser.test.js`, `docs/live-verification.md`. Gate measured with it in the tree: 344 pass, 0 fail. **Nothing pushed, no PR, no bump, no release.** The orchestration files are committed on `main` as `01465da` (also unpushed). Resume = push the branch, open the PR, bump to 0.3.3, merge, release — all of it needs the user's go.
 
 _(no production PR running)_
 
