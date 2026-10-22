@@ -1021,7 +1021,12 @@ function buildOperations(session) {
       async run(ctx, input) {
         const { headline, about } = input.fields;
         await nav(SETTINGS_URL);
-        const editProfile = await uniqueControl(page, [C.role('button', 'Edit professional profile')], 'profile editor entry');
+        const editProfile = await uniqueControl(page, [
+          C.role('button', 'Edit professional profile'),
+          // Live markup: the entry point is a link carrying the aria label.
+          C.css('a[aria-label="Edit profile"]'),
+          C.label('Edit profile'),
+        ], 'profile editor entry');
         await editProfile.click();
         await page.waitForURL((candidate) => String(candidate).includes('/profile/view'), { timeout: 15000 })
           .catch(() => {});
