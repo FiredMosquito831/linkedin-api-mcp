@@ -4,6 +4,34 @@ The browser adapters in `src/operations/reads.js` and `src/operations/writes.js`
 
 This guide is for checking the real thing, on your own account, in your own browser session.
 
+## Measured status (2026-10-22)
+
+One account, one session, real pages. This is what the check actually found, not what the fixtures suggested.
+
+**Reads — 7 of 7 report ok**, but the evidence differs by surface:
+
+| Adapter | Result | Evidence |
+|---|---|---|
+| `profile.get` | ok | parsed the live profile name |
+| `feed.list` | ok | parsed real post cards |
+| `companies.get` | ok | parsed the live company page |
+| `jobs.search` | ok | parsed live job cards |
+| `posts.list` | ok | empty-account path (the account had 0 posts) |
+| `inbox.list` | ok | empty-account path (0 conversations) |
+| `connections.list` | ok | empty-account path (0 connections) |
+
+The empty-account rows prove the empty-state path, not row parsing. They stay unverified until an account has data.
+
+**Writes — 0 verified live.** The first attempt (`companies.follow`) failed closed and changed nothing: LinkedIn presented a manual-verification challenge after the click. That is the account-risk signal this guide warns about, and it is the reason the write adapters are not verified in bulk. Every write adapter remains fixture-tested only.
+
+**What the live run corrected, which the fixtures never could:**
+- LinkedIn obfuscates class names, so every class-based selector was dead. The adapters now key on `data-testid`, `componentkey`, `data-job-id`, roles and aria labels.
+- The feed list mixes posts with suggested people and ads; only list items carrying a reaction control are posts.
+- Some live controls are excluded from the accessibility tree, so role queries miss them while aria-label and attribute selectors find them.
+- A control can be absent for a moment after navigation; resolution waits before declaring it missing.
+- The connections route is `/mynetwork/invite-connect/connections/`.
+- The app shell returns 404 intermittently for routes it still renders.
+
 ## Why this has to be manual
 
 An adapter that no longer matches the page must fail closed rather than guess. `LAYOUT_UNSUPPORTED` and `ACCESS_RESTRICTED` are the expected outcomes when LinkedIn changes a page or the account lacks a product.
@@ -12,7 +40,7 @@ The check therefore runs against a session you sign into yourself. It is read-on
 
 ## Prerequisites
 
-1. A LinkedIn account you own, and a LinkedIn developer application with the **Share on LinkedIn** product (so `w_member_social` is granted). The read adapters also use your signed-in browser session, not the OAuth token.
+1. A LinkedIn account you own. The read adapters use your signed-in browser session, not the OAuth token, so no developer application is needed for a read check. A developer application with the **Share on LinkedIn** product is only relevant to the official API write path.
 2. Chromium for the browser adapters:
    ```sh
    linkedin browser install
