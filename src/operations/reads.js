@@ -628,11 +628,18 @@ function buildSearchUrl(route, { query, cursor, origin }) {
   return url.href;
 }
 
-const SEARCH_ITEM_SELECTOR = 'li.search-results__list-item';
+const SEARCH_ITEM_SELECTORS = [
+  'li.search-results__list-item',
+  // Live job results carry a job id on the card itself.
+  '[data-occludable-job-id]',
+  '[data-job-id]',
+];
 const SEARCH_TITLE_SELECTORS = [
   '.entity-result__title-text',
   '.search-result__entity-name',
   '.job-card-list__title',
+  // Live markup: the job title is the link text to the job page.
+  'a[href*="/jobs/view/"]',
 ];
 const SEARCH_SNIPPET_SELECTORS = [
   '.entity-result__summary',
@@ -641,7 +648,7 @@ const SEARCH_SNIPPET_SELECTORS = [
 ];
 
 async function runSearch(ctx, page) {
-  const items = await findItems(page, [SEARCH_ITEM_SELECTOR]);
+  const items = await findItems(page, SEARCH_ITEM_SELECTORS);
   if (!items) {
     if (await page.getByText(/no results/i).count() > 0) {
       return { items: [], nextCursor: null, query: ctx.query, empty: true };
@@ -686,6 +693,8 @@ const COMPANY_NAME_SELECTORS = [
   '.org-company-header__title',
   '.org-header__title',
   '[data-test-id="org-header"] h1',
+  // Live markup: the company name is the page's only h1.
+  'main h1',
 ];
 
 function companySlug(url) {
@@ -727,8 +736,21 @@ function normalizeCompanyPostsUrl(url) {
 // the apply link's href attribute.
 // ---------------------------------------------------------------------------
 
-const JOB_CARD_SELECTORS = ['li.job-card', '.job-card', '.job-card-container', 'li[class*="job-card"]'];
-const JOB_TITLE_SELECTORS = ['.job-card-list__title', '.job-card-bubble-title', '.job-card-container__job-title'];
+const JOB_CARD_SELECTORS = [
+  'li.job-card',
+  '.job-card',
+  '.job-card-container',
+  'li[class*="job-card"]',
+  // Live markup: job cards expose an id attribute instead of named classes.
+  '[data-occludable-job-id]',
+  '[data-job-id]',
+];
+const JOB_TITLE_SELECTORS = [
+  '.job-card-list__title',
+  '.job-card-bubble-title',
+  '.job-card-container__job-title',
+  'a[href*="/jobs/view/"]',
+];
 
 async function parseJobCard(card, page) {
   const link = card.locator('a[href*="/jobs/"]');
