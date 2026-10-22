@@ -22,7 +22,9 @@ One account, one session, real pages. This is what the check actually found, not
 
 The empty-account rows prove the empty-state path, not row parsing. They stay unverified until an account has data.
 
-**Writes — 0 verified live.** The first attempt (`companies.follow`) failed closed and changed nothing: LinkedIn presented a manual-verification challenge after the click. That is the account-risk signal this guide warns about, and it is the reason the write adapters are not verified in bulk. Every write adapter remains fixture-tested only.
+**Writes — 0 verified live.** Follow/unfollow attempts returned `AUTH_REQUIRED`, but that did not prove a displayed verification challenge or that nothing changed. A later read-only check on the same account showed a visible **Following** control on the company page. The exact earlier attempt that changed that state is unverified. Do not retry an uncertain write automatically.
+
+**Same-account detector diagnosis (2026-10-23):** the error was reproduced on a normal HTTP-200 company page with one hidden, zero-size reCAPTCHA Enterprise iframe inside a hidden container. No visible verification prompt was observed. Counting every matching iframe caused a false positive. The shared detector now checks visibility and explicit visible verification prompts; the same read-only page check passes with that iframe still present and unchanged. No iframe is removed, disabled, entered, or solved. A visible challenge, checkpoint route, or HTTP 401/403/429 still stops access. This correction does not establish that no earlier challenge occurred, and it does not verify a write adapter.
 
 **What the live run corrected, which the fixtures never could:**
 - LinkedIn obfuscates class names, so every class-based selector was dead. The adapters now key on `data-testid`, `componentkey`, `data-job-id`, roles and aria labels.
@@ -31,6 +33,28 @@ The empty-account rows prove the empty-state path, not row parsing. They stay un
 - A control can be absent for a moment after navigation; resolution waits before declaring it missing.
 - The connections route is `/mynetwork/invite-connect/connections/`.
 - The app shell returns 404 intermittently for routes it still renders.
+
+## Expanded same-account test pass (2026-10-23)
+
+A bounded read-only pass completed at 2026-10-22 21:38 UTC (2026-10-23 00:38 UTC+03). It used the original `default` browser profile and confirmed the same own-account identity before navigating. The budget was 20 top-level navigations; 19 were used, with no mutations. Repeated operations on the same loaded page reused that page. The run stopped immediately at an actual HTTP 403 on Sales Navigator. No bypass or retry followed it.
+
+The earlier "7/7 report ok" result above measured only whether functions returned, not completeness or correctness of every field. This broader pass supersedes that as the current quality assessment:
+
+| Result | Operations | Evidence or limitation |
+|---|---|---|
+| Returned populated records | `jobs.search`, `search.jobs` | Three records each; all three had titles and URLs. Other fields and result relevance were not independently verified. These share one reader implementation. |
+| Explicit empty state | `posts.list`, `inbox.list`, `inbox.search`, `connections.list` | Zero rows with an explicit empty-state marker; non-empty row parsing remains unverified. |
+| Partial fields | `profile.get` | Name present; headline, about, and location not returned. Missing values are not proof those fields are absent from the real profile. |
+| Partial fields | `feed.list` | Two records with text; one author; no post permalinks. This is not full post parsing. |
+| `LAYOUT_UNSUPPORTED` | `profile.skills`, `profile.contact`, `invitations.received`, `invitations.sent`, `companies.get`, `companies.posts`, `jobs.get`, `jobs.apply-url`, `jobs.saved`, `search.people`, `search.companies`, `search.posts`, `analytics.profile-views` | The current readers could not parse those rendered layouts. This does not establish a subscription restriction or that the surface has no data. Company parsing that worked in an earlier pass was not reproducible in this pass. |
+| Unavailable result | `analytics.ssi` | Returned `available:false`; no usable SSI metrics were established. |
+| Blocked and stopped | `sales.search-people` | HTTP 403 mapped to `HUMAN_INTERVENTION_REQUIRED`; this proves access was refused, not that a visible CAPTCHA appeared or why access was refused. |
+
+**Not live-tested in this pass:** `posts.get`, `comments.list`, `reactions.list`, `inbox.thread`, `connections.status`, `analytics.post`, `sales.profile`, `sales.search-companies`, `sales.inbox`, `sales.thread`. Valid post/thread/relationship targets or own-post analytics were unavailable, or the run stopped before those operations. No target was fabricated.
+
+**All 21 writes:** no new live attempt. Existing fixture tests exercise their flows, but fixtures do not prove live behavior. Outbound content, recipients, invitations, profile changes, and destructive actions require an exact reviewed payload and separate approval. The current Follow state was left unchanged.
+
+**Offline gate:** all 344 local tests passed, covering detector, adapters, approvals, account isolation, queue, install/OAuth flows, MCP stdio/HTTP, and packaging contracts. Installed-tarball smoke test and version guard passed. Plugin validation passed with the existing root-context and missing-listing-icon warnings. No new hosted CI run, push, release, or npm publication was performed for this detector change. Official OAuth remains unverified against a real developer app.
 
 ## Why this has to be manual
 

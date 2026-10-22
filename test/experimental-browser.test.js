@@ -43,7 +43,14 @@ async function fixture(t, options = {}) {
     },
     url: () => currentUrl,
     title: async () => 'Title',
-    locator: (selector) => selector.includes('iframe[') ? { count: async () => options.challenge ? 1 : 0 } : locator,
+    locator: (selector) => {
+      if (selector.includes('iframe[')) return {
+        count: async () => options.challenge ? 1 : 0,
+        nth: () => ({ isVisible: async () => options.challengeHidden !== true }),
+      };
+      if (selector === '[role="dialog"], [role="alert"], h1, h2') return { count: async () => 0 };
+      return locator;
+    },
   };
   const context = {
     pages: () => [page],
@@ -119,6 +126,12 @@ test('challenge pages and 429 responses stop before extraction', async (t) => {
     const { browser } = await fixture(t, options);
     await assert.rejects(browser.snapshot({ url: 'https://www.linkedin.com/feed/' }));
   }
+});
+
+test('a hidden background challenge iframe does not block a normal snapshot', async (t) => {
+  const { browser } = await fixture(t, { challenge: true, challengeHidden: true });
+  const result = await browser.snapshot({ url: 'https://www.linkedin.com/feed/' });
+  assert.equal(result.text, 'Page text');
 });
 
 test('Voyager is a fixed read-only me request with no redirects or retries', async (t) => {
