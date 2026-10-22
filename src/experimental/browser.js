@@ -66,15 +66,33 @@ export async function openExperimentalBrowser({ experimental, profileDirectory, 
   }
 
   return {
-    async login({ waitForUser }) {
-      if (typeof waitForUser !== 'function') throw new TypeError('Manual login needs an interactive confirmation callback.');
+    async login({ waitForUser, waitForSessionMs } = {}) {
+      const waitsForSession = Number.isFinite(waitForSessionMs) && waitForSessionMs > 0;
+      if (typeof waitForUser !== 'function' && !waitsForSession) {
+        throw new TypeError('Manual login needs a confirmation callback or a session timeout.');
+      }
       const response = await page.goto('https://www.linkedin.com/login', { waitUntil: 'domcontentloaded', timeout: 30000 });
       if (response) assertResponse(response.status());
       linkedinUrl(page.url(), { allowLogin: true });
-      await waitForUser();
+
+      const hasSession = async () => (await context.cookies('https://www.linkedin.com'))
+        .some((cookie) => cookie.name === 'li_at' && cookie.value);
+
+      if (typeof waitForUser === 'function') {
+        await waitForUser();
+      } else {
+        // No terminal to confirm from: watch for the authenticated cookie the
+        // human creates by signing in, and give up after the deadline.
+        const deadline = Date.now() + waitForSessionMs;
+        const interval = Math.min(2000, Math.max(50, Math.floor(waitForSessionMs / 10)));
+        while (Date.now() < deadline) {
+          if (await hasSession()) break;
+          await new Promise((resolve) => setTimeout(resolve, Math.min(interval, Math.max(0, deadline - Date.now()))));
+        }
+      }
+
       await checkPage();
-      const cookies = await context.cookies('https://www.linkedin.com');
-      if (!cookies.some((cookie) => cookie.name === 'li_at' && cookie.value)) {
+      if (!await hasSession()) {
         throw new HumanInterventionError('No authenticated browser session was found. Complete sign-in manually.');
       }
       return { url: page.url(), message: 'Browser session saved. Credentials and challenges were handled manually.' };

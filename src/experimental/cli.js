@@ -108,13 +108,19 @@ export function registerExperimentalCommands(program, deps) {
 
   const browser = experimental.command('browser').description('Use a dedicated, visibly automated browser profile.');
   flags(browser.command('login').description('Open Chromium for manual sign-in and manual verification.'))
+    .option('--timeout-seconds <seconds>', 'how long to wait for the session when no terminal is attached', '600')
     .action(async (options) => {
       await gate(options, deps);
-      const result = await withBrowser(options, deps, (client) => client.login({
-        waitForUser: async () => {
-          if (!await ask(deps, 'Complete login and any verification in the browser, then confirm.')) throw new Error('Login cancelled.');
-        },
-      }));
+      // With a terminal, wait for the human to confirm. Without one, watch the
+      // profile for an authenticated session instead of failing.
+      const interactive = typeof deps.confirmExperimental === 'function' || deps.stdin.isTTY === true;
+      const result = await withBrowser(options, deps, (client) => client.login(interactive
+        ? {
+          waitForUser: async () => {
+            if (!await ask(deps, 'Complete login and any verification in the browser, then confirm.')) throw new Error('Login cancelled.');
+          },
+        }
+        : { waitForSessionMs: Number(options.timeoutSeconds) * 1000 }));
       print(deps, result);
     });
   flags(browser.command('snapshot').requiredOption('--url <url>', 'one LinkedIn page URL'))
