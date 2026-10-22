@@ -20,7 +20,7 @@ async function ask(deps, message) {
   }
 }
 
-async function gate(options, deps) {
+export async function gate(options, deps) {
   if (!options.experimental) throw new Error('Pass --experimental to enable this experimental command.');
   deps.stderr.write(`${WARNING}\n`);
   if (!options.yes && !await ask(deps, 'Enable experimental access for this command?')) throw new Error('Experimental command cancelled.');
@@ -33,7 +33,7 @@ function stateDirectory(deps) {
   return accountPaths(directory, selected).root;
 }
 
-function flags(command) {
+export function flags(command) {
   return command
     .option('--experimental', 'opt in to experimental unofficial access')
     .option('--yes', 'explicitly acknowledge the experimental warning for this invocation');

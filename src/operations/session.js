@@ -41,7 +41,21 @@ export async function openSurfaceSession({ profileDirectory, headless = false })
       async navigate(url) {
         const target = linkedinUrl(url);
         const response = await page.goto(target, { waitUntil: 'domcontentloaded', timeout: 30000 });
-        if (response) assertResponse(response.status(), response.headers());
+        if (response) {
+          const status = response.status();
+          if (status === 404) {
+            // LinkedIn's app shell returns 404 intermittently for routes the SPA
+            // still renders. Wait for that shell before treating it as an error;
+            // the adapter still fails closed if the DOM turns out to be wrong.
+            const rendered = await page.locator('main, [role="main"]').first()
+              .waitFor({ state: 'attached', timeout: 15000 })
+              .then(() => true)
+              .catch(() => false);
+            if (!rendered) assertResponse(status, response.headers());
+          } else {
+            assertResponse(status, response.headers());
+          }
+        }
         await check();
       },
       async close() {

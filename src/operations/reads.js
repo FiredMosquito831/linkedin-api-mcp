@@ -190,11 +190,16 @@ function jobIdFromUrl(url) {
 // Shared post-card parsing (posts.list, feed.list, companies.posts, posts.get)
 // ---------------------------------------------------------------------------
 
+// LinkedIn obfuscates its class names, so the live anchors are structural:
+// data-testid, roles and aria labels. The class-based candidates stay for the
+// older markup and for the fixtures.
 const POST_CARD_SELECTORS = [
   'li[data-anonymize="post"]',
   'article.update',
   'li.update',
   '.organization-update',
+  '[data-testid="mainFeed"] [role="listitem"]',
+  '[data-testid="mainFeed"] > div',
 ];
 const POST_AUTHOR_SELECTORS = [
   '.update-components-actor-name',
@@ -205,6 +210,7 @@ const POST_TEXT_SELECTORS = [
   '.update-components-text',
   '.update-shared-feed-content__text',
   '.show-more-less-text__text',
+  '[data-testid="expandable-text-box"]',
 ];
 const POST_TIMESTAMP_SELECTORS = ['.update-components-timestamp', '.update-feed-list__timestamp'];
 const POST_LINK_SELECTOR = 'a[href*="feed/update"], a[href*="posts/"], a[href*="activity"]';
@@ -227,9 +233,24 @@ async function parsePostCard(card, page) {
   };
 }
 
+// An account with no posts or connections is a valid empty result, not a
+// layout failure. Only an explicit empty-state marker counts; a page with
+// neither rows nor the marker still fails closed.
+async function hasEmptyState(page, pattern) {
+  // Read the rendered text rather than per-element matches: LinkedIn splits
+  // counts and labels across nodes, which defeats getByText.
+  const text = await page.locator('main').first().innerText({ timeout: 3000 }).catch(() => '');
+  return pattern.test(text);
+}
+
 async function runPostCards(ctx, page) {
   const items = await findItems(page, POST_CARD_SELECTORS);
-  if (!items) throw layout('No post cards found; this post list layout is not supported.');
+  if (!items) {
+    if (await hasEmptyState(page, /haven.t posted yet|no posts yet|no posts to show|nothing to see for now/i)) {
+      return { items: [], nextCursor: null, empty: true };
+    }
+    throw layout('No post cards found; this post list layout is not supported.');
+  }
   const { start, count, nextCursor } = sliceWindow(await items.count(), ctx);
   const result = [];
   for (let i = 0; i < count; i += 1) result.push(await parsePostCard(items.nth(start + i), page));
@@ -331,6 +352,10 @@ const PROFILE_NAME_SELECTORS = [
   '#profile-header-card .pv-text-body--heading3',
   '.profile-hero__name',
   '#profile-header-card h1',
+  // Live markup: the member name is the first h2 inside the content column,
+  // in an SDUI profile card; no h1 exists on the page.
+  '[componentkey*="profile.card"] h2',
+  'main h2',
 ];
 
 async function runProfileGet(ctx, page) {
@@ -454,11 +479,19 @@ const INBOX_ITEM_SELECTORS = [
   'li.msg-s-listitem',
   'li[class^="msg-s-"]',
   '.messaging-conversations li[class*="msg-s-"]',
+  // Live markup: real conversations are the thread links in the labelled list.
+  // The "new message" stub is excluded, because it is not a conversation.
+  '[aria-label="Conversation List"] a[href*="/messaging/thread/"]:not([href$="/thread/new/"]):not([href*="/thread/new/"])',
 ];
 
 async function parseInboxItems(ctx, page) {
   const items = await findItems(page, INBOX_ITEM_SELECTORS);
-  if (!items) throw layout('No conversation rows found; this messaging layout is not supported.');
+  if (!items) {
+    if (await hasEmptyState(page, /no messages.{0,4}yet|reach out and start a conversation/i)) {
+      return { items: [], nextCursor: null, empty: true };
+    }
+    throw layout('No conversation rows found; this messaging layout is not supported.');
+  }
   const { start, count, nextCursor } = sliceWindow(await items.count(), ctx);
   const result = [];
   for (let i = 0; i < count; i += 1) {
@@ -525,11 +558,20 @@ const CONNECTION_ITEM_SELECTORS = [
   'li[data-anonymize="connections-list-item"]',
   'li.my-network-card',
   '#connections-list li',
+  // Live markup: the results container is stable even though the row markup is
+  // obfuscated, so accept the list items it holds. A generic `main li` is
+  // deliberately not used: it would match sidebar rows and return junk.
+  '[data-testid="show-results-inline-container"] [class*="mn-connection"]',
 ];
 
 async function runConnectionsList(ctx, page) {
   const items = await findItems(page, CONNECTION_ITEM_SELECTORS);
-  if (!items) throw layout('No connection rows found; this network layout is not supported.');
+  if (!items) {
+    if (await hasEmptyState(page, /0\s*connections|no connections yet|you don.t have any connections/i)) {
+      return { items: [], nextCursor: null, empty: true };
+    }
+    throw layout('No connection rows found; this network layout is not supported.');
+  }
   const { start, count, nextCursor } = sliceWindow(await items.count(), ctx);
   const result = [];
   for (let i = 0; i < count; i += 1) {
@@ -959,8 +1001,10 @@ const OPS = {
     run: runInboxSearch,
   },
   'connections.list': {
-    families: ['/my-network/'],
-    defaultUrl: `${LINKEDIN_ORIGIN}/my-network/navigate/`,
+    // Live route is /mynetwork/invite-connect/connections/; the older
+    // /my-network/ path stays accepted for older markup and fixtures.
+    families: ['/my-network/', '/mynetwork/'],
+    defaultUrl: `${LINKEDIN_ORIGIN}/mynetwork/invite-connect/connections/`,
     run: runConnectionsList,
   },
   'invitations.received': {

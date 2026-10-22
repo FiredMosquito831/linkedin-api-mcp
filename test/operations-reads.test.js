@@ -27,6 +27,7 @@ const ROUTES = {
   'https://www.linkedin.com/messaging/': 'messaging.html',
   'https://www.linkedin.com/messaging/thread/urn:li:mp-conversation:1001': 'thread.html',
   'https://www.linkedin.com/my-network/navigate/': 'connections.html',
+  'https://www.linkedin.com/mynetwork/invite-connect/connections/': 'connections.html',
   'https://www.linkedin.com/mynetwork/invitations/': 'invitations.html',
   'https://www.linkedin.com/mynetwork/invitations/outgoing/': 'invitations.html',
   'https://www.linkedin.com/search/results/': 'search-people.html',
