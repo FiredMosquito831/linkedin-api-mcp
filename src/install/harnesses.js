@@ -255,11 +255,25 @@ function removeClaudeSettings(file, { marketplace, plugin }) {
   const data = readJsonObject(file);
   const enabled = objectOrEmpty(data.enabledPlugins);
   const key = `${plugin}@${marketplace}`;
-  if (!Object.hasOwn(enabled, key)) return `${key} is not present in ${file}; left unchanged`;
-  delete enabled[key];
+  const removed = [];
+  if (Object.hasOwn(enabled, key)) {
+    delete enabled[key];
+    removed.push(key);
+  }
   data.enabledPlugins = enabled;
+  // The project file's marketplace entry was added by the project install, so
+  // the project uninstall removes it. The global marketplace registration is
+  // never removed: `claude plugin marketplace remove` would uninstall the
+  // plugin from every other folder too.
+  const marketplaces = objectOrEmpty(data.extraKnownMarketplaces);
+  if (Object.hasOwn(marketplaces, marketplace)) {
+    delete marketplaces[marketplace];
+    removed.push(marketplace);
+  }
+  data.extraKnownMarketplaces = marketplaces;
+  if (removed.length === 0) return `${key} is not present in ${file}; left unchanged`;
   writeJson(file, data);
-  return `removed ${key} from ${file}; the marketplace entry was kept`;
+  return `removed ${removed.join(' and ')} from ${file}; unrelated keys preserved`;
 }
 
 function claudeAdapter(definition, config, execute, which) {
