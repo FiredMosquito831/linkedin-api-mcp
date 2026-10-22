@@ -40,10 +40,11 @@ export function registerOAuthCommands(program, deps, setExitCode) {
 
   auth
     .command('login-oauth')
-    .description('Sign in with the official LinkedIn OAuth flow in your browser.')
+    .description('Sign in with the official LinkedIn OAuth flow in your browser (registered HTTPS redirect).')
     .option('--client-id <id>', 'LinkedIn application client id; defaults to LINKEDIN_CLIENT_ID')
+    .option('--redirect-uri <url>', 'registered redirect URL; defaults to LINKEDIN_REDIRECT_URI')
     .option('--scope <scope>', 'space-delimited scopes', DEFAULT_SCOPE)
-    .option('--manual', 'paste the redirected URL instead of using a local callback server')
+    .option('--loopback', 'use a local HTTP callback server instead of pasting the redirect; LinkedIn rejects HTTP redirect URLs, so this only works for an app that accepts one')
     .option('--no-pkce', 'skip PKCE and use a client secret')
     .option('--extended-login', 'enable Google, Apple and passkey sign-in on LinkedIn')
     .action(async (options) => setExitCode(await loginWithOAuth(options, deps, store)));
@@ -75,16 +76,23 @@ async function loginWithOAuth(options, deps, store) {
 
   let server = null;
   let redirectUri;
-  if (options.manual) {
-    // No listener: the member copies the redirected URL back.
-    redirectUri = deps.env.LINKEDIN_REDIRECT_URI;
-    if (!redirectUri) {
-      deps.stderr.write('Manual mode needs LINKEDIN_REDIRECT_URI set to a redirect URL registered in your LinkedIn app.\n');
-      return 1;
-    }
-  } else {
+  if (options.loopback) {
+    // Opt-in only: LinkedIn rejects HTTP redirect URLs, so a loopback server is
+    // usable only for an app that has been configured to accept one.
     server = await startCallbackServer({});
     redirectUri = server.url;
+  } else {
+    // Default: the member pastes the redirected URL back. LinkedIn requires an
+    // exact HTTPS match against the app's Authorized redirect URLs.
+    redirectUri = options.redirectUri || deps.env.LINKEDIN_REDIRECT_URI;
+    if (!redirectUri) {
+      deps.stderr.write('Pass --redirect-uri or set LINKEDIN_REDIRECT_URI to an HTTPS redirect URL registered in your LinkedIn app.\n');
+      return 1;
+    }
+    if (!/^https:\/\//i.test(redirectUri)) {
+      deps.stderr.write('LinkedIn rejects HTTP redirect URLs: register and use an https:// URL.\n');
+      return 1;
+    }
   }
 
   const authorizationUrl = buildAuthorizationUrl({
@@ -98,12 +106,12 @@ async function loginWithOAuth(options, deps, store) {
 
   deps.stdout.write('Open this URL to authorize the application:\n');
   deps.stdout.write(`${authorizationUrl}\n`);
-  if (!options.manual) deps.stdout.write('Waiting for the redirect...\n');
+  if (server) deps.stdout.write('Waiting for the redirect...\n');
   openInBrowser(authorizationUrl, deps);
 
   let code;
   try {
-    if (options.manual) {
+    if (!server) {
       const pasted = await readRedirectUrl(deps);
       if (!pasted) {
         deps.stderr.write('No redirect URL given.\n');

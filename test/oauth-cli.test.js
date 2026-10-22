@@ -35,19 +35,35 @@ test('login-oauth refuses without a client id and opens no browser', async () =>
 });
 
 test('login-oauth builds the authorization URL without leaking the client secret', async () => {
-  const { deps, stderr } = fixture({
+  const { deps } = fixture({
     env: {
       LINKEDIN_CLIENT_ID: 'client-1',
       LINKEDIN_CLIENT_SECRET: 'secret-1',
       LINKEDIN_REDIRECT_URI: 'https://example.test/callback',
     },
   });
-  // Manual mode with no pasted URL cannot succeed, but the URL must be correct.
-  assert.equal(await run(['node', 'linkedin', 'auth', 'login-oauth', '--manual'], deps), 1);
+  // No pasted URL, so it cannot succeed, but the URL must be correct.
+  assert.equal(await run(['node', 'linkedin', 'auth', 'login-oauth'], deps), 1);
   assert.match(deps.openedUrl, /response_type=code/);
   assert.match(deps.openedUrl, /client_id=client-1/);
   assert.match(deps.openedUrl, /state=/);
+  assert.match(deps.openedUrl, /redirect_uri=https%3A%2F%2Fexample\.test%2Fcallback/);
   assert.doesNotMatch(deps.openedUrl, /secret-1/);
+});
+
+test('login-oauth refuses an HTTP redirect URI because LinkedIn rejects it', async () => {
+  const { deps, stderr } = fixture({
+    env: { LINKEDIN_CLIENT_ID: 'client-1', LINKEDIN_REDIRECT_URI: 'http://127.0.0.1:1234/callback' },
+  });
+  assert.equal(await run(['node', 'linkedin', 'auth', 'login-oauth'], deps), 1);
+  assert.match(stderr.value, /https/i);
+  assert.equal(deps.openedUrl, undefined);
+});
+
+test('login-oauth requires a registered redirect URI by default', async () => {
+  const { deps, stderr } = fixture({ env: { LINKEDIN_CLIENT_ID: 'client-1' } });
+  assert.equal(await run(['node', 'linkedin', 'auth', 'login-oauth'], deps), 1);
+  assert.match(stderr.value, /redirect-uri|LINKEDIN_REDIRECT_URI/);
 });
 
 test('login-oauth without a client secret refuses --no-pkce', async () => {
