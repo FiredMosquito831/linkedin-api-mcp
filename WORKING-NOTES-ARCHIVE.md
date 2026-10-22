@@ -6,4 +6,5 @@ Superseded blocks of `WORKING-NOTES.md`, the dated "SHIPPED AND VERIFIED BY ME" 
 
 | Date | Entry |
 |---|---|
+| 2026-10-23 | SHIPPED AND VERIFIED BY ME — 0.3.3. Merge `96909b2` = `origin/main`; PR #9's six CI jobs read individually (4 pass early, 2 Windows jobs pass later); publish run `39865260123` success; registry document `dist-tags.latest` = `0.3.3`, `gitHead` = `96909b2`, tarball downloaded and its SHA-512 matched `dist.integrity` (`sha512-XPrQgv3sEHD5O…u1g==`), sha1 matched `dist.shasum`; SLSA provenance v1 present. First `workflow_run` publish attempt was skipped because the merge cancelled the preceding main CI — the successful run then triggered a second publish attempt, which shipped. |
 | 2026-10-23 | Manual initialised by /working-notes; no superseded blocks yet. |

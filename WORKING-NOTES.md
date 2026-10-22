@@ -314,6 +314,7 @@ READ-ONLY: no git writes, no edits outside its scratchpad and the spec; **no liv
 | 0.2.2 | 2026-10-22 | #5 | Wait for npm registry replication before failing a publish. |
 | 0.3.1 | 2026-10-22 | #7 | Tune adapters against live LinkedIn (selectors keyed on testids/labels/roles). |
 | 0.3.2 | 2026-10-22 | #8 (`37e3386`) | Live-verification fixes; published by OIDC with provenance; tag, main, and registry `gitHead` agree; tarball integrity verified independently. |
+| 0.3.3 | 2026-10-23 | #9 (`96909b2`) | Visibility-aware challenge detector (hidden 0×0 reCAPTCHA no longer counts as a challenge; visible prompts still stop). 344 tests green; six-job CI green; publish run `39865260123` succeeded; registry `latest` = 0.3.3, `gitHead` = merge SHA, downloaded tarball SHA-512 matched `dist.integrity`, SLSA provenance present. No GitHub release/tag created (awaiting the user's go). |
 
 ---
 
@@ -339,6 +340,7 @@ One bullet per lesson, with the evidence that makes it memorable and its origin.
 - A piped `| tail` swallows the exit code — read the tool's own summary line ("# pass N", "# fail N").
 - Git Bash on Windows emits `bash.exe.stackdump` on some crashes; it is untracked noise, not a repo artifact.
 - `git status` shows CRLF→LF warnings for Windows checkouts; do not "fix" them.
+- **A merge cancels the main CI run that was already going** (`ci.yml` uses `cancel-in-progress: true`). The first `npm publish` `workflow_run` therefore fires for a *cancelled* run, its job-level `if` is false, and the run shows `skipped`. The successful CI run for the merge commit then triggers a second publish that ships. A `skipped` publish immediately after a merge is expected, not a broken pipeline — wait for the second one before investigating. (2026-10-23, 0.3.3.)
 
 ## IX.4 Product and scope
 - Experimental is not compliant or safe: browser automation raises account risk, and the first write attempt drew a verification challenge.
@@ -348,7 +350,7 @@ One bullet per lesson, with the evidence that makes it memorable and its origin.
 
 # PART X — STILL OPEN
 
-- **Priority now:** land the visibility-aware challenge detector (written, 344 tests green, uncommitted on `fix/visible-challenge-detector`), then repair the read adapters that returned `LAYOUT_UNSUPPORTED`.
+- **Priority now:** repair the read adapters that returned `LAYOUT_UNSUPPORTED` (13 operations; spec first, then one implementer per family).
 - **Queued:** see `QUEUE.md` (binding order).
 - **Held (each needs its own explicit go):** live write verification (21 operations, one at a time, exact target + payload); OAuth login against a real developer app; row parsing on a non-empty account; `npm deprecate linkedin-api-mcp@0.0.0-stage`; plugin listing icon.
 - **Awaiting the user's decision:** whether the 13 `LAYOUT_UNSUPPORTED` reads should be repaired surface by surface (recommended) or re-measured first.
