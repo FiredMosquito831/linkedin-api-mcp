@@ -1,6 +1,7 @@
 import { mkdir } from 'node:fs/promises';
 import { isAbsolute } from 'node:path';
 import { assertExperimental, assertResponse, HumanInterventionError, linkedinUrl } from './policy.js';
+import { assertNoVisibleChallenge } from './challenge.js';
 
 // A dedicated browser profile contains session cookies. Never use a normal Chrome profile.
 export async function openExperimentalBrowser({ experimental, profileDirectory, chromium, headless = false }) {
@@ -43,8 +44,7 @@ export async function openExperimentalBrowser({ experimental, profileDirectory, 
 
   async function checkPage() {
     linkedinUrl(page.url());
-    const challenge = page.locator('iframe[src*="captcha"], iframe[src*="challenge"], input[name="captcha"], #captcha-internal');
-    if (await challenge.count() > 0) throw new HumanInterventionError();
+    await assertNoVisibleChallenge(page);
   }
 
   async function navigate(url) {

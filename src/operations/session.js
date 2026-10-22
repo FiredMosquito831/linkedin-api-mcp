@@ -1,7 +1,8 @@
 import { mkdir, open, unlink } from 'node:fs/promises';
 import { isAbsolute } from 'node:path';
 import { chromium } from 'playwright';
-import { assertResponse, linkedinUrl, HumanInterventionError } from '../experimental/policy.js';
+import { assertResponse, linkedinUrl } from '../experimental/policy.js';
+import { assertNoVisibleChallenge } from '../experimental/challenge.js';
 import { OperationError } from './errors.js';
 
 export async function openSurfaceSession({ profileDirectory, headless = false }) {
@@ -32,9 +33,7 @@ export async function openSurfaceSession({ profileDirectory, headless = false })
     async function check() {
       if (failure) throw failure;
       linkedinUrl(page.url());
-      if (await page.locator('iframe[src*="captcha"], iframe[src*="challenge"], input[name="captcha"], #captcha-internal').count()) {
-        throw new HumanInterventionError();
-      }
+      await assertNoVisibleChallenge(page);
     }
     return {
       page, context, check,
