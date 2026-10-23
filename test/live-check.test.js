@@ -1,7 +1,12 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { Readable } from 'node:stream';
+import { run } from '../src/cli.js';
+import { OPERATIONS } from '../src/operations/catalog.js';
 import { OperationError } from '../src/operations/errors.js';
-import { LIVE_READ_OPERATIONS, runLiveCheck, summarizeReport } from '../src/experimental/live-check.js';
+import { LIVE_READ_OPERATIONS, catalogReadOperations, runLiveCheck, summarizeReport } from '../src/experimental/live-check.js';
 
 const PAGE_BODY = 'html-page-body with TOKEN abcdef123 and cookie SESSION=xyz987';
 
@@ -171,4 +176,146 @@ test('summarizeReport counts statuses and builds one printable line per operatio
 
 test('summarizeReport rejects a non-report', () => {
   assert.throws(() => summarizeReport({}), (error) => error instanceof OperationError && error.code === 'INVALID_INPUT');
+});
+
+// CLI-level tests. The session and the browser opener are injected fakes: every
+// navigation is recorded and then fails, so no browser is launched and no request
+// leaves the process.
+const READS = OPERATIONS.filter((entry) => entry.access === 'read').map((entry) => entry.name);
+const WRITES = OPERATIONS.filter((entry) => entry.access === 'write').map((entry) => entry.name);
+const WITHOUT_INPUTS = OPERATIONS.filter((entry) => entry.access === 'read' && entry.inputSchema.required.length === 0).map((entry) => entry.name);
+const WITH_INPUTS = OPERATIONS.filter((entry) => entry.access === 'read' && entry.inputSchema.required.length > 0).map((entry) => entry.name);
+
+function cliFixture({ fail = null } = {}) {
+  const navigations = [];
+  const opened = [];
+  const stdout = { value: '', write(value) { this.value += value; } };
+  const stderr = { value: '', write(value) { this.value += value; } };
+  const session = {
+    page: { url: () => 'about:blank' },
+    navigate: async (url) => {
+      navigations.push(url);
+      throw fail ?? new OperationError('LAYOUT_UNSUPPORTED', 'fixture layout');
+    },
+    check: async () => {},
+    close: async () => {},
+  };
+  const deps = {
+    env: { LINKEDIN_STATE_DIR: join(tmpdir(), 'live-check-test-state'), LINKEDIN_ACCOUNT: 'test' },
+    stdin: Readable.from([]),
+    stdout,
+    stderr,
+    store: { load: () => null },
+    openSession: async () => { opened.push(true); return session; },
+  };
+  return { deps, navigations, opened, stdout, stderr };
+}
+
+function liveCheck(args, deps) {
+  return run(['node', 'linkedin', 'experimental', 'live-check', '--experimental', '--yes', ...args], deps);
+}
+
+test('catalogReadOperations lists every catalog read in catalog order and no write', () => {
+  assert.deepEqual([...catalogReadOperations()], READS);
+  for (const name of WRITES) assert.ok(!catalogReadOperations().includes(name), `write ${name} must not be listed`);
+  for (const name of LIVE_READ_OPERATIONS) assert.ok(READS.includes(name), `default ${name} must be a catalog read`);
+});
+
+test('default run keeps its seven-name list, skip notes, and summary unchanged', async () => {
+  const { deps, navigations, stdout } = cliFixture();
+  assert.equal(await liveCheck([], deps), 0);
+  assert.equal(stdout.value, [
+    'profile.get: unsupported (Unsupported: LAYOUT_UNSUPPORTED)',
+    'posts.list: unsupported (Unsupported: LAYOUT_UNSUPPORTED)',
+    'feed.list: unsupported (Unsupported: LAYOUT_UNSUPPORTED)',
+    'inbox.list: unsupported (Unsupported: LAYOUT_UNSUPPORTED)',
+    'connections.list: unsupported (Unsupported: LAYOUT_UNSUPPORTED)',
+    'companies.get: skipped (needs --url)',
+    'jobs.search: skipped (needs --query)',
+    '',
+    '5 checked: 0 ok, 5 unsupported, 0 failed. 2 skipped.',
+    'Unsupported means LinkedIn changed the page, or the account lacks access. The adapter fails closed rather than guessing.',
+    '',
+  ].join('\n'));
+  assert.equal(navigations.length, 5);
+});
+
+test('an explicit --operations list equal to the default prints exactly the default run', async () => {
+  const fromDefault = cliFixture();
+  const fromList = cliFixture();
+  assert.equal(await liveCheck([], fromDefault.deps), 0);
+  assert.equal(await liveCheck(['--operations', LIVE_READ_OPERATIONS.join(',')], fromList.deps), 0);
+  assert.equal(fromList.stdout.value, fromDefault.stdout.value);
+  assert.deepEqual(fromList.navigations, fromDefault.navigations);
+});
+
+test('--all-reads checks each catalog read once, catalog order within each group, and skips those without their input', async () => {
+  const { deps, navigations, stdout } = cliFixture();
+  assert.equal(await liveCheck(['--all-reads'], deps), 0);
+  const names = stdout.value.split('\n')
+    .filter((line) => /^[a-z][\w.-]*: (ok|unsupported|failed|skipped) /.test(line))
+    .map((line) => line.slice(0, line.indexOf(':')));
+  // Checked operations print first, then skipped ones; each group keeps catalog order.
+  assert.deepEqual(names, [...WITHOUT_INPUTS, ...WITH_INPUTS]);
+  assert.equal(new Set(names).size, READS.length);
+  // Only the checked operations navigate, and each navigates once.
+  assert.equal(navigations.length, WITHOUT_INPUTS.length);
+});
+
+test('--all-reads with --operations is a validation error, even when the list equals the default', async () => {
+  for (const operations of ['profile.get', LIVE_READ_OPERATIONS.join(',')]) {
+    const { deps, opened, navigations, stderr } = cliFixture();
+    assert.equal(await liveCheck(['--all-reads', '--operations', operations], deps), 1);
+    assert.equal(stderr.value, 'Use either --all-reads or --operations, not both.\n');
+    assert.equal(opened.length, 0);
+    assert.equal(navigations.length, 0);
+  }
+});
+
+test('every catalog write name is rejected before any browser opens', async () => {
+  const { deps, opened, navigations, stderr } = cliFixture();
+  assert.equal(await liveCheck(['--operations', ['profile.get', ...WRITES].join(',')], deps), 1);
+  assert.equal(stderr.value, `Unknown operation(s): ${WRITES.join(', ')}. Live checks are read-only.\n`);
+  assert.equal(opened.length, 0);
+  assert.equal(navigations.length, 0);
+});
+
+test('an unknown operation name is rejected with the same message shape', async () => {
+  const { deps, opened, navigations, stderr } = cliFixture();
+  assert.equal(await liveCheck(['--operations', 'profile.get,nope.nothing'], deps), 1);
+  assert.equal(stderr.value, 'Unknown operation(s): nope.nothing. Live checks are read-only.\n');
+  assert.equal(opened.length, 0);
+  assert.equal(navigations.length, 0);
+});
+
+test('--operations accepts a catalog read outside the default list', async () => {
+  const { deps, navigations, stdout } = cliFixture();
+  assert.equal(await liveCheck(['--operations', 'search.companies,analytics.profile-views', '--query', 'software'], deps), 0);
+  assert.equal(navigations.length, 2);
+  assert.ok(stdout.value.includes('search.companies: unsupported (Unsupported: LAYOUT_UNSUPPORTED)\n'));
+  assert.ok(stdout.value.includes('analytics.profile-views: unsupported (Unsupported: LAYOUT_UNSUPPORTED)\n'));
+});
+
+test('a read whose required input is missing is skipped, and nothing is opened when nothing remains', async () => {
+  const { deps, opened, navigations, stderr } = cliFixture();
+  assert.equal(await liveCheck(['--operations', 'search.companies'], deps), 1);
+  // The experimental warning comes first (gate runs before the selection check).
+  assert.ok(stderr.value.endsWith('Nothing to check: pass --url or --query for the selected operations.\n'), stderr.value);
+  assert.equal(opened.length, 0);
+  assert.equal(navigations.length, 0);
+});
+
+test('--url and --query reach the operations that require them', async () => {
+  const { deps, navigations } = cliFixture();
+  assert.equal(await liveCheck(['--operations', 'companies.get,jobs.search', '--url', 'https://www.linkedin.com/company/example/', '--query', 'software'], deps), 0);
+  assert.deepEqual(navigations, [
+    'https://www.linkedin.com/company/example/',
+    'https://www.linkedin.com/jobs/search/?keywords=software',
+  ]);
+});
+
+test('a failing read is navigated once and never retried', async () => {
+  const { deps, navigations } = cliFixture({ fail: new Error('fixture failure') });
+  assert.equal(await liveCheck(['--operations', 'profile.get,posts.list'], deps), 1);
+  assert.equal(navigations.length, 2);
 });

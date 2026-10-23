@@ -1,4 +1,5 @@
 import { OperationError } from '../operations/errors.js';
+import { OPERATIONS } from '../operations/catalog.js';
 
 // Read-only operations that can be verified against the user's own account.
 export const LIVE_READ_OPERATIONS = Object.freeze([
@@ -10,6 +11,18 @@ export const LIVE_READ_OPERATIONS = Object.freeze([
   'companies.get',
   'jobs.search',
 ]);
+
+// Every read operation in the catalog, in catalog order. The write filter lives
+// here, so a write operation can never reach the live check, whichever flag is used.
+export function catalogReadOperations(catalog = OPERATIONS) {
+  return Object.freeze(catalog.filter((entry) => entry.access === 'read').map((entry) => entry.name));
+}
+
+// The input fields a catalog read requires, such as ['url'] or ['query'].
+export function requiredInputs(name, catalog = OPERATIONS) {
+  const entry = catalog.find((candidate) => candidate.name === name);
+  return entry && entry.access === 'read' ? [...(entry.inputSchema.required ?? [])] : [];
+}
 
 const UNSUPPORTED_CODES = new Set(['LAYOUT_UNSUPPORTED', 'ACCESS_RESTRICTED']);
 

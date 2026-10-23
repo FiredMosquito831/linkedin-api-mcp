@@ -9,7 +9,7 @@
 // write path is reachable from here, and a result never contains a page body,
 // a token, or a cookie. It is never run automatically.
 
-import { LIVE_READ_OPERATIONS, runLiveCheck, summarizeReport } from './live-check.js';
+import { LIVE_READ_OPERATIONS, catalogReadOperations, requiredInputs, runLiveCheck, summarizeReport } from './live-check.js';
 import { gate, flags } from './cli.js';
 import { createReadAdapter } from '../operations/reads.js';
 import { openSurfaceSession } from '../operations/session.js';
@@ -24,10 +24,12 @@ export function registerLiveCheckCommand(program, deps, setExitCode) {
     .option('--operations <list>', 'comma-separated operations to check', LIVE_READ_OPERATIONS.join(','))
     .option('--account <name>', 'named account to use')
     .option('--url <url>', 'target for operations that need one, such as companies.get')
-    .option('--query <text>', 'search text for operations that need one, such as jobs.search'))
-    .action(async (options) => {
+    .option('--query <text>', 'search text for operations that need one, such as jobs.search')
+    .option('--all-reads', 'check every catalog read operation, in catalog order, instead of the default list'))
+    .action(async (options, command) => {
       try {
-        setExitCode(await liveCheck(options, deps));
+        const operationsGiven = command.getOptionValueSource('operations') === 'cli';
+        setExitCode(await liveCheck({ ...options, operationsGiven }, deps));
       } catch (error) {
         deps.stderr.write(`${error.message}\n`);
         setExitCode(1);
@@ -35,20 +37,30 @@ export function registerLiveCheckCommand(program, deps, setExitCode) {
     });
 }
 
-// Some read operations need a target or a query. Without one, skip them with a
-// note rather than reporting a false failure.
+// Some read operations need a target or a query, as the catalog's input schema
+// says. Without one, skip them with a note rather than reporting a false failure.
+function missingInputs(operation, options) {
+  return requiredInputs(operation).filter((field) => !options[field]);
+}
+
 function inputFor(operation, options) {
-  if (operation === 'companies.get') return options.url ? { url: options.url } : null;
-  if (operation === 'jobs.search') return options.query ? { query: options.query } : null;
-  return {};
+  return Object.fromEntries(requiredInputs(operation).map((field) => [field, options[field]]));
 }
 
 async function liveCheck(options, deps) {
-  const requested = String(options.operations ?? '')
-    .split(',')
-    .map((name) => name.trim())
-    .filter(Boolean);
-  const unknown = requested.filter((name) => !LIVE_READ_OPERATIONS.includes(name));
+  if (options.allReads && options.operationsGiven) {
+    deps.stderr.write('Use either --all-reads or --operations, not both.\n');
+    return 1;
+  }
+  const requested = options.allReads
+    ? [...catalogReadOperations()]
+    : String(options.operations ?? '')
+      .split(',')
+      .map((name) => name.trim())
+      .filter(Boolean);
+  // Only catalog reads are accepted; a write or an unknown name is rejected.
+  const readable = new Set(catalogReadOperations());
+  const unknown = requested.filter((name) => !readable.has(name));
   if (unknown.length > 0) {
     deps.stderr.write(`Unknown operation(s): ${unknown.join(', ')}. Live checks are read-only.\n`);
     return 1;
@@ -69,9 +81,9 @@ async function liveCheck(options, deps) {
   const checked = [];
   const skipped = [];
   for (const operation of requested) {
-    const input = inputFor(operation, options);
-    if (input === null) skipped.push(operation);
-    else checked.push({ operation, input });
+    const missing = missingInputs(operation, options);
+    if (missing.length > 0) skipped.push({ operation, missing });
+    else checked.push({ operation, input: inputFor(operation, options) });
   }
   if (checked.length === 0) {
     deps.stderr.write('Nothing to check: pass --url or --query for the selected operations.\n');
@@ -88,8 +100,8 @@ async function liveCheck(options, deps) {
     });
     const summary = summarizeReport(report);
     for (const line of summary.lines) deps.stdout.write(`${line}\n`);
-    for (const operation of skipped) {
-      deps.stdout.write(`${operation}: skipped (needs ${operation === 'companies.get' ? '--url' : '--query'})\n`);
+    for (const { operation, missing } of skipped) {
+      deps.stdout.write(`${operation}: skipped (needs ${missing.map((field) => `--${field}`).join(' and ')})\n`);
     }
     deps.stdout.write(`\n${summary.checked} checked: ${summary.ok} ok, ${summary.unsupported} unsupported, ${summary.failed} failed.`);
     deps.stdout.write(skipped.length ? ` ${skipped.length} skipped.\n` : '\n');

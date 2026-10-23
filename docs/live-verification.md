@@ -81,7 +81,7 @@ The check therefore runs against a session you sign into yourself. It is read-on
 linkedin experimental live-check
 ```
 
-Every readable operation is checked in turn:
+The default run checks seven operations in turn. `companies.get` needs `--url` and `jobs.search` needs `--query`; without them those two are reported as skipped. With both, every default operation is checked:
 
 ```
 profile.get: ok (Succeeded.)
@@ -95,11 +95,23 @@ jobs.search: ok (Succeeded.)
 7 checked: 4 ok, 1 unsupported, 1 failed.
 ```
 
+Without `--url` and `--query`, the last two lines read `companies.get: skipped (needs --url)` and `jobs.search: skipped (needs --query)`, and the summary reads `5 checked: ... 2 skipped.`
+
 To check a subset:
 
 ```sh
 linkedin experimental live-check --operations profile.get,posts.list
 ```
+
+`--operations` accepts any catalog read, not only the default seven. A write operation or an unknown name is rejected before any browser opens.
+
+To check every catalog read, once each, in catalog order:
+
+```sh
+linkedin experimental live-check --all-reads
+```
+
+`--all-reads` cannot be combined with `--operations`. A read that needs `--url` or `--query` is skipped unless you pass it, so `--all-reads` alone runs 13 reads and skips 20. One `--url` or `--query` value is given to every read that needs it. A read whose target does not fit fails before it navigates, and is reported as `failed (Failed: INVALID_INPUT)`. To check a read against its own target, run it on its own with `--operations`.
 
 To use a named account:
 
