@@ -280,3 +280,21 @@ Row-anchored dumps, unbounded depth, text-free. Raw: `.superpowers/diagnostics/r
 **What it does not settle:** the profile section row markup, the company-post card shape on this account, the job detail mount point, and a reliable people-row signature. These are exactly the cases where a guessed selector would be a fabricated fact.
 
 **Decision carried forward:** implement the candidates the probes measured (companies, posts, and the profile/company/job ladders where a structural candidate exists), keep every existing candidate, and leave any family whose row markup is still unknown unchanged rather than guessed. One live `experimental live-check` after the change tells us which candidates actually resolve.
+
+## LIVE CONFIRMATION (2026-10-23 13:35 UTC+03 — 4 navigations, read-only, no mutation)
+
+Run after 0.3.4 was published, with `.superpowers/diagnostics/check-034-adapters.mjs` (git-ignored) on the saved `default` profile, after an own-account identity check.
+
+| Operation | Result |
+|---|---|
+| `search.companies` | **populated — 3 items**, title and url present on all 3 |
+| `search.posts` | **populated — 3 items**, title and url present on all 3 |
+| `analytics.profile-views` | `ACCESS_RESTRICTED` (exit 4), no HTTP status — the redirect is now reported as an access gate |
+
+This turns the 0.3.4 candidates from fixture-only into live-verified for these three operations. `snippet` was empty on all rows in both searches, which matches the fixture expectation and is not a failure of the row rule.
+
+**Separate finding — the product's own live check cannot test most reads.** `linkedin experimental live-check` accepts only the seven names in `LIVE_READ_OPERATIONS` (`profile.get`, `posts.list`, `feed.list`, `inbox.list`, `connections.list`, `companies.get`, `jobs.search`) and rejects everything else with "Unknown operation(s) … Live checks are read-only". So it cannot verify `search.*`, `analytics.*`, `jobs.get`, `invitations.*`, or any of the other reads this spec is repairing. Queued as its own item.
+
+**Discrepancy to explain, not to paper over:** the same live-check run reported `jobs.search` as `LAYOUT_UNSUPPORTED`, while the 12:01 probe parsed 3 job items and the 12:40 structure probe found 25 job cards. The adapter's job path did not change in 0.3.4, and the jobs fixture output is byte-identical. The difference is therefore environmental — most plausibly page variation or throttling after roughly 30 read navigations in one hour. It is recorded as unexplained, and no retry was attempted.
+
+by FiredMosquito831
