@@ -8,7 +8,7 @@ import { openExperimentalBrowser } from '../src/experimental/browser.js';
 
 async function fixture(t, options = {}) {
   const directory = await mkdtemp(join(tmpdir(), 'linkedin-browser-test-'));
-  t.after(() => rm(directory, { recursive: true, force: true }));
+  t.after(() => rm(directory, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 }));
   let currentUrl = 'about:blank';
   const calls = [];
   const listeners = new Set();
@@ -202,7 +202,7 @@ test('UI actions observe throttling responses and deny mixed-case password field
 
 test('browser setup failure closes the launched context', async (t) => {
   const directory = await mkdtemp(join(tmpdir(), 'linkedin-browser-setup-'));
-  t.after(() => rm(directory, { recursive: true, force: true }));
+  t.after(() => rm(directory, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 }));
   let closed = false;
   await assert.rejects(openExperimentalBrowser({ experimental: true, profileDirectory: directory, chromium: {
     launchPersistentContext: async () => ({ pages: () => [], newPage: async () => { throw new Error('target crashed'); }, close: async () => { closed = true; } }),
