@@ -31,6 +31,8 @@ const ROUTES = {
   'https://www.linkedin.com/mynetwork/invitations/': 'invitations.html',
   'https://www.linkedin.com/mynetwork/invitations/outgoing/': 'invitations.html',
   'https://www.linkedin.com/search/results/': 'search-people.html',
+  'https://www.linkedin.com/search/results/companies/': 'search-companies.html',
+  'https://www.linkedin.com/search/results/content/': 'search-posts.html',
   'https://www.linkedin.com/jobs/search/': 'search-jobs.html',
   'https://www.linkedin.com/jobs/saved/': 'saved-jobs.html',
   'https://www.linkedin.com/jobs/view/2000001': 'job.html',
@@ -598,4 +600,90 @@ test('inbox.list parses live-style thread links as conversation rows', async (t)
   assert.equal(data.items.length, 1, 'the "new message" stub is not a conversation');
   assert.equal(data.items[0].peer, 'Ada Lovelace');
   assert.match(data.items[0].threadUrl, /\/messaging\/thread\/urn:li:conv:1\/$/);
+});
+
+// The redirect is simulated, not performed: the fixture is shown while the page
+// reports the URL the redirect would have landed on. Same technique as the
+// foreign-origin test above; it makes no network request.
+function pageReportingUrl(session, url) {
+  return new Proxy(session.page, {
+    get(target, prop) {
+      if (prop === 'url') return () => url;
+      const value = Reflect.get(target, prop);
+      return typeof value === 'function' ? value.bind(target) : value;
+    },
+  });
+}
+
+test('search.companies parses company rows and skips rows without a company link', async (t) => {
+  const session = await openSession(browser);
+  t.after(() => session.close());
+  const data = await createReadAdapter(session).execute('search.companies', { query: 'acme' });
+  assert.equal(
+    session.state.navigations[0],
+    'https://www.linkedin.com/search/results/companies/?keywords=acme&origin=GLOBAL_SEARCH_HEADER',
+  );
+  assert.deepEqual(data.items.map((item) => item.title), ['Acme', 'Beta Corp']);
+  assert.deepEqual(data.items.map((item) => item.type), ['company', 'company']);
+  assert.equal(data.items[0].url, 'https://www.linkedin.com/company/acme/');
+  assert.equal(data.items[1].url, 'https://www.linkedin.com/company/beta-corp/');
+});
+
+test('search.posts parses post rows that carry a reaction control', async (t) => {
+  const session = await openSession(browser);
+  t.after(() => session.close());
+  const data = await createReadAdapter(session).execute('search.posts', { query: 'bounded' });
+  assert.equal(
+    session.state.navigations[0],
+    'https://www.linkedin.com/search/results/content/?keywords=bounded&origin=GLOBAL_SEARCH_HEADER',
+  );
+  assert.deepEqual(data.items.map((item) => item.type), ['post', 'post']);
+  assert.deepEqual(data.items.map((item) => item.title), [
+    'Synthetic search post about bounded reads.',
+    'Second synthetic search post.',
+  ]);
+});
+
+test('company and post search still fail closed on a page with no result rows', async (t) => {
+  const session = await openSession(browser, { routes: {} });
+  t.after(() => session.close());
+  const adapter = createReadAdapter(session);
+  await code(adapter.execute('search.companies', { query: 'acme' }), 'LAYOUT_UNSUPPORTED');
+  await code(adapter.execute('search.posts', { query: 'bounded' }), 'LAYOUT_UNSUPPORTED');
+});
+
+test('a redirect away from the profile-views route is ACCESS_RESTRICTED, not a layout failure', async (t) => {
+  const session = await openSession(browser, {
+    routes: { 'https://www.linkedin.com/analytics/profile/': 'redirect-feed.html' },
+  });
+  t.after(() => session.close());
+  const redirected = { ...session, page: pageReportingUrl(session, 'https://www.linkedin.com/feed/') };
+  await assert.rejects(createReadAdapter(redirected).execute('analytics.profile-views'), (error) => {
+    assert.ok(error instanceof ReadOperationError, `expected ReadOperationError, got ${error}`);
+    assert.equal(error.code, 'ACCESS_RESTRICTED');
+    assert.match(error.message, /redirected away/);
+    assert.match(error.message, /\/feed\//);
+    return true;
+  });
+});
+
+test('other operations that leave their route still report LAYOUT_UNSUPPORTED', async (t) => {
+  const session = await openSession(browser, {
+    routes: {
+      'https://www.linkedin.com/sales/ssi': 'redirect-feed.html',
+      'https://www.linkedin.com/feed/update/urn:li:activity:123456789': 'redirect-feed.html',
+    },
+  });
+  t.after(() => session.close());
+  const feed = 'https://www.linkedin.com/feed/';
+  await code(
+    createReadAdapter({ ...session, page: pageReportingUrl(session, feed) }).execute('analytics.ssi'),
+    'LAYOUT_UNSUPPORTED',
+  );
+  await code(
+    createReadAdapter({ ...session, page: pageReportingUrl(session, feed) }).execute('analytics.post', {
+      url: 'https://www.linkedin.com/feed/update/urn:li:activity:123456789',
+    }),
+    'LAYOUT_UNSUPPORTED',
+  );
 });

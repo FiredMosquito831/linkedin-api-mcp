@@ -25,7 +25,8 @@
 //    throws INVALID_INPUT before navigation.
 //  - Missing required DOM throws ReadOperationError code LAYOUT_UNSUPPORTED.
 //    Plan-restricted surfaces (Sales Navigator, paywalled analytics) throw
-//    ACCESS_RESTRICTED. The session's navigate/check checkpoint/401/403/429
+//    ACCESS_RESTRICTED, as does a redirect away from analytics.profile-views
+//    (redirectRestricted). The session's navigate/check checkpoint/401/403/429
 //    errors (HumanInterventionError and friends) propagate untouched.
 //  - Analytics values are reported as null / available:false when absent; no
 //    numbers are ever invented.
@@ -672,8 +673,31 @@ const SEARCH_SNIPPET_SELECTORS = [
   '.job-card-container__metadata',
 ];
 
+// Per-kind row ladders. Each one is tried before the shared job ladder and never
+// replaces it. They sit on their own config entries because the shared ladder
+// also serves search.people, whose rows may carry company links.
+// Company rows: a list item that links to a company page (measured 2026-10-23).
+const COMPANY_ITEM_SELECTORS = [
+  'main :is(li, [role="listitem"]):has(a[href*="/company/"])',
+  ...SEARCH_ITEM_SELECTORS,
+];
+// The first company link in a row is often the logo, which has no text. Take the
+// first link without an image, then fall back to any company link.
+const COMPANY_TITLE_SELECTORS = [
+  ...SEARCH_TITLE_SELECTORS,
+  'a[href*="/company/"]:not(:has(img))',
+  'a[href*="/company/"]',
+];
+// Post results use the feed's own post-card rule: a list item carrying a reaction
+// control (measured 2026-10-23).
+const POST_ITEM_SELECTORS = [
+  'main :is(li, [role="listitem"]):has([aria-label^="Reaction button state"])',
+  ...SEARCH_ITEM_SELECTORS,
+];
+const POST_SEARCH_TITLE_SELECTORS = [...SEARCH_TITLE_SELECTORS, ...POST_TEXT_SELECTORS];
+
 async function runSearch(ctx, page) {
-  const items = await findItems(page, SEARCH_ITEM_SELECTORS);
+  const items = await findItems(page, ctx.config.itemSelectors ?? SEARCH_ITEM_SELECTORS);
   if (!items) {
     if (await page.getByText(/no results/i).count() > 0) {
       return { items: [], nextCursor: null, query: ctx.query, empty: true };
@@ -690,7 +714,7 @@ async function runSearch(ctx, page) {
     const row = items.nth(i);
     const record = {
       type: ctx.config.kind,
-      title: await textOf(row, SEARCH_TITLE_SELECTORS, { required: true, label: 'result title' }),
+      title: await textOf(row, ctx.config.titleSelectors ?? SEARCH_TITLE_SELECTORS, { required: true, label: 'result title' }),
       snippet: await textOf(row, SEARCH_SNIPPET_SELECTORS),
       url: null,
     };
@@ -1077,6 +1101,8 @@ const OPS = {
     searchRoute: '/search/results/companies/',
     searchOrigin: 'GLOBAL_SEARCH_HEADER',
     kind: 'company',
+    itemSelectors: COMPANY_ITEM_SELECTORS,
+    titleSelectors: COMPANY_TITLE_SELECTORS,
     requiredQuery: true,
     run: runSearch,
   },
@@ -1085,6 +1111,8 @@ const OPS = {
     searchRoute: '/search/results/content/',
     searchOrigin: 'GLOBAL_SEARCH_HEADER',
     kind: 'post',
+    itemSelectors: POST_ITEM_SELECTORS,
+    titleSelectors: POST_SEARCH_TITLE_SELECTORS,
     requiredQuery: true,
     run: runSearch,
   },
@@ -1116,6 +1144,7 @@ const OPS = {
     families: ['/analytics/'],
     defaultUrl: `${LINKEDIN_ORIGIN}/analytics/profile/`,
     restricted: true,
+    redirectRestricted: true,
     run: runAnalyticsProfileViews,
   },
   'analytics.ssi': {
@@ -1232,6 +1261,12 @@ async function assertStillOnRoute(page, ctx) {
     throw layout(`Page for ${ctx.name} left the LinkedIn origin (${url.origin}); refusing to parse untrusted content.`);
   }
   if (!ctx.config.families.some((family) => url.pathname.startsWith(family))) {
+    // Opt-in per operation (redirectRestricted): for a surface whose redirect is an
+    // access gate, leaving the route family is an access restriction, not a layout
+    // change. Every other operation keeps LAYOUT_UNSUPPORTED.
+    if (ctx.config.redirectRestricted) {
+      throw restricted(`Page for ${ctx.name} redirected away from its route family (${ctx.config.families.join(', ')}) to ${url.pathname}; treated as access-restricted.`);
+    }
     throw layout(`Page for ${ctx.name} landed on an unsupported route (${url.pathname}).`);
   }
 }
