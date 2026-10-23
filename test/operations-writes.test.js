@@ -163,7 +163,7 @@ test('invalid inputs fail before any navigation', async () => {
 
 test('shared service prepares, separately approves, publishes and verifies against local DOM', async (t) => {
   const directory = await mkdtemp(join(tmpdir(), 'linkedin-write-service-'));
-  t.after(() => rm(directory, { recursive: true, force: true }));
+  t.after(() => rm(directory, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 }));
   let opens = 0;
   const session = await openFixtureSession(t);
   const api = createOperations({ stateDirectory: directory, experimental: true,
@@ -209,7 +209,7 @@ test('posts.create with payload-bound imageData uploads one file and verifies', 
 
 test('posts.create with imagePath uploads the file path', async (t) => {
   const directory = await mkdtemp(join(tmpdir(), 'linkedin-writes-img-'));
-  t.after(() => rm(directory, { recursive: true, force: true }));
+  t.after(() => rm(directory, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 }));
   const imagePath = join(directory, 'photo.png');
   await writeFile(imagePath, Buffer.from('iVBORw0KGgo=', 'base64'));
   const session = await openFixtureSession(t);

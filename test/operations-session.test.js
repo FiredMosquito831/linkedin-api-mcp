@@ -9,7 +9,7 @@ async function fixture(t, { status = 200, html = '<main><h1>Normal page</h1></ma
   const directory = await mkdtemp(join(tmpdir(), 'linkedin-session-detector-'));
   const session = await openSurfaceSession({ profileDirectory: directory, headless: true });
   t.after(async () => {
-    try { await session.close(); } finally { await rm(directory, { recursive: true, force: true }); }
+    try { await session.close(); } finally { await rm(directory, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 }); }
   });
   // Intercept every browser request. No LinkedIn or CAPTCHA provider is contacted.
   await session.context.route('**/*', (route) => {
