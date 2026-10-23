@@ -347,3 +347,19 @@ Content-anchored selectors, because probe 4 proved a bare `ul` finds the site na
 **What this establishes:** the company name is not an `h1` on `/company/microsoft/`. The next step is not another fallback guess but one measurement of where the name actually lives (a `[data-testid]`/`componentkey`/`h2` census on that page). Until then `companies.get` stays failing closed, and the 0.3.7 fallbacks are harmless additions that simply do not help this page.
 
 **Not done:** no further attempt on `companies.get`; no change to the other families.
+
+## PROBE 6 (2026-10-23 19:40 UTC+03 — 1 navigation, 4 s settle, read-only)
+
+Company page only, after the 0.3.7 live failure:
+
+```
+hasMain: true      hasRoleMain: false
+headings: h1 = 1   h2 = 5   h3 = 3
+first h1: 9 characters, parent a div
+```
+
+**This overturns the 0.3.7 conclusion.** The page *does* render `<main>` and exactly one `<h1>` whose length matches the company name — it simply does so later than the reader looks. The earlier censuses that saw `main: false` ran earlier in the page's life.
+
+**The real defect in `companies.get` is the absence of a wait.** `textOf(..., { required: true })` takes one immediate count and throws; `findItems` already has a bounded settle for lists. The 0.3.7 fallbacks are therefore not the fix (they are harmless), and the next change is to give required single-field reads the same bounded settle the list readers already use.
+
+Recorded for the record: the 0.3.7 release notes say `companies.get` remains unsupported, which is true of 0.3.7 and is superseded by this measurement.
