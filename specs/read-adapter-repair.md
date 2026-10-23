@@ -314,3 +314,23 @@ by FiredMosquito831
 **Still unmeasured:** `jobs.get`/`jobs.apply-url` (title candidate only), `jobs.saved`, `invitations.received`/`sent`, `profile.skills`/`profile.contact`, `companies.get`.
 
 **Method note:** an unqualified `ul` and an unqualified `section` both match navigation and header chrome before the content list. Future probes must anchor inside the content region or by a repeated-sibling signature, not by tag alone.
+
+## PROBE 5 (2026-10-23 18:10 UTC+03 — 5 navigations, 0 mutations, no stop)
+
+Content-anchored selectors, because probe 4 proved a bare `ul` finds the site nav and a bare `section` finds the page header.
+
+| Page | Anchor | Result | Reading |
+|---|---|---|---|
+| `/jobs/saved/` | `ul:has(a[href*="/jobs/view/"])` | **not found** | the page contains no job links at all. With zero saved jobs this is an **empty state**, not selector drift. |
+| `/mynetwork/invitations/` | `section:has(ul)` | **not found** | no list inside any section. Consistent with **zero invitations**, not a broken reader. |
+| `/company/microsoft/` | `body` (depth 3) | found; **1,149,291 characters of text**, 92 body children, a header section and an empty `role="alert"` | the company page renders fully but has **no `<main>` element**, and `companies.get`'s selector is `main h1`. The reader can never match. |
+| `/in/:slug/` | per-section census | 9 sections; none has a heading matching "skills" or "contact"; sections 1-3 have a `ul` with 4 items each | the profile has no skills section and no contact section rendered on this page at 3.5 s. Likely **absent content**, not a wrong key. |
+| `/jobs/view/:id/` | `main h2` | found, 28 characters | the job title is an `h2` inside `main`; `jobs.get` looks for `h1`. |
+
+**Revised diagnosis — this is the important change:**
+- `jobs.saved`, `invitations.received`, `invitations.sent`, `profile.skills`, `profile.contact` are most likely **empty states** on this account (no saved jobs, no invitations, no skills listed, no contact section), not selector bugs. They fail because the readers have no empty-state branch for those surfaces. Proving it needs the empty-state wording measured, which means reading page text; that has not been done.
+- `companies.get` is a **real defect**: the page renders fully and has no `main`, and the reader hard-requires `main h1`.
+- `jobs.get` / `jobs.apply-url` is a **real defect**: the title is an `h2` and the reader wants an `h1`.
+- `companies.posts` (title/permalink) remains a field-coverage gap, not a row-matching gap.
+
+**Not done:** measuring the empty-state wording (needs an explicit decision, because it means reading page text), and any code change for these five families.
