@@ -23,7 +23,7 @@ const ROUTES = {
   'https://www.linkedin.com/feed/': 'posts.html',
   'https://www.linkedin.com/feed/update/urn:li:activity:123456789': 'posts.html',
   'https://www.linkedin.com/company/acme/': 'company.html',
-  'https://www.linkedin.com/company/acme/posts/': 'posts.html',
+  'https://www.linkedin.com/company/acme/posts/': 'company-posts.html',
   'https://www.linkedin.com/messaging/': 'messaging.html',
   'https://www.linkedin.com/messaging/thread/urn:li:mp-conversation:1001': 'thread.html',
   'https://www.linkedin.com/my-network/navigate/': 'connections.html',
@@ -339,7 +339,9 @@ test('search.people builds the URL from the known route and enforces it', async 
   assert.equal(data.nextCursor, 2);
   assert.equal(data.items[0].type, 'person');
   assert.equal(data.items[0].title, 'Alice Rivers');
-  assert.equal(data.items[0].url, 'https://www.linkedin.com/in/alice-rivers');
+  // The card's anchor is not a /in/ link (measured 2026-10-23): the url is
+  // whatever href the card's first anchor carries.
+  assert.equal(data.items[0].url, 'https://www.linkedin.com/miniprofile/fixture-alice/');
   assert.match(data.items[0].snippet, /Product manager/);
 
   const paged = await adapter.execute('search.people', { query: 'widgets', limit: 10, cursor: 2 });
@@ -347,8 +349,18 @@ test('search.people builds the URL from the known route and enforces it', async 
   // The cursor moved the SERVER page (offset=); the DOM is not re-skipped, so a
   // nonzero cursor still returns the first records of the loaded page.
   assert.equal(paged.items.length, 3);
-  assert.equal(paged.items[0].title, 'Alice Rivers');
+  // The site-nav items outside main and the unmarked pagination li elements
+  // inside main must not parse as people rows.
+  assert.deepEqual(paged.items.map((item) => item.title), ['Alice Rivers', 'Bob Stone', 'Carol Vance']);
   assert.equal(paged.nextCursor, null); // short page: no next-page signal
+});
+
+test('search.people fails closed when only site navigation items are present', async (t) => {
+  const session = await openSession(browser, {
+    routes: { 'https://www.linkedin.com/search/results/people/': 'search-people-nav-only.html' },
+  });
+  t.after(() => session.close());
+  await code(createReadAdapter(session).execute('search.people', { query: 'widgets' }), 'LAYOUT_UNSUPPORTED');
 });
 
 test('search operations reject caller-supplied URLs and missing queries', async (t) => {
@@ -402,7 +414,27 @@ test('companies.get returns a company record; companies.posts normalizes the URL
     session.state.navigations.at(-1),
     'https://www.linkedin.com/company/acme/posts/',
   );
-  assert.equal(posts.items.length, 3);
+  // Measured 2026-10-23: the company posts page has no mainFeed container and
+  // no reaction-controlled cards, but renders main [role="article"] cards.
+  // The suggested-company li card in the same fixture must not parse.
+  assert.equal(posts.items.length, 2);
+  assert.equal(posts.items[0].id, 'urn:li:activity:555666777');
+  assert.equal(posts.items[0].url, 'https://www.linkedin.com/feed/update/urn:li:activity:555666777');
+  assert.match(posts.items[0].text, /bounded read adapter/);
+  assert.equal(posts.items[0].author, null, 'a company post has no /in/ author link');
+  assert.equal(posts.items[1].id, 'urn:li:activity:666777888');
+  assert.equal(posts.nextCursor, null);
+});
+
+test('companies.posts fails closed when the page has no article cards', async (t) => {
+  const session = await openSession(browser, {
+    routes: { 'https://www.linkedin.com/company/acme/posts/': 'company-posts-decoy-only.html' },
+  });
+  t.after(() => session.close());
+  await code(
+    createReadAdapter(session).execute('companies.posts', { url: 'https://www.linkedin.com/company/acme/' }),
+    'LAYOUT_UNSUPPORTED',
+  );
 });
 
 test('jobs.saved and jobs.get parse saved jobs and a job detail page', async (t) => {

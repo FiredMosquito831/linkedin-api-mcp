@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><title>Posts | Acme</title></head>
+<body>
+<!-- Fail-closed case: only a non-article card and site navigation. No
+     main [role="article"], so companies.posts must throw LAYOUT_UNSUPPORTED. -->
+<nav>
+  <ul role="list">
+    <li role="listitem">Jobs</li>
+  </ul>
+</nav>
+<main>
+  <ul>
+    <li class="suggested-company-card">
+      <h2>Beta Corp</h2>
+      <a href="/company/beta-corp/">View company</a>
+    </li>
+  </ul>
+</main>
+</body>
+</html>

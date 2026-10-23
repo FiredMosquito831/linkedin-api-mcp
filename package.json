@@ -1,6 +1,6 @@
 {
   "name": "linkedin-api-mcp",
-  "version": "0.3.5",
+  "version": "0.3.6",
   "description": "LinkedIn CLI, JavaScript operations library, and MCP server with opt-in experimental browser adapters",
   "type": "module",
   "bin": {

@@ -2,29 +2,46 @@
 <html lang="en">
 <head><meta charset="utf-8"><title>Search results | LinkedIn</title></head>
 <body>
+<!-- Shape mirrors the measured 2026-10-23 person card: main [role="listitem"]
+     with an anchor whose href is NOT a /in/ link, an image, a name block and
+     a headline block, and a componentkey carrying a member URN. Names, URLs
+     and headlines here are synthetic. The name/headline tags are the assumed
+     structure (paragraphs), not a measured one. -->
+<nav>
+  <ul role="list">
+    <li role="listitem">Jobs</li>
+    <li role="listitem">Companies</li>
+  </ul>
+</nav>
 <main>
-  <ul class="search-results">
-    <li class="search-results__list-item">
-      <div class="entity-result">
-        <h3 class="entity-result__title-text">Alice Rivers</h3>
-        <p class="entity-result__summary">Product manager at Acme · 500+ connections</p>
+  <ul>
+    <li role="listitem" componentkey="urn:li:fs_profile:fixture-1">
+      <a href="/miniprofile/fixture-alice/"><img alt=""></a>
+      <div>
+        <p>Alice Rivers</p>
+        <p>Product manager at Acme · 500+ connections</p>
       </div>
-      <a href="/in/alice-rivers">Profile</a>
     </li>
-    <li class="search-results__list-item">
-      <div class="entity-result">
-        <h3 class="entity-result__title-text">Bob Stone</h3>
-        <p class="entity-result__summary">CTO at Beta Corp</p>
+    <li role="listitem" componentkey="urn:li:fs_profile:fixture-2">
+      <a href="/miniprofile/fixture-bob/"><img alt=""></a>
+      <div>
+        <p>Bob Stone</p>
+        <p>CTO at Beta Corp</p>
       </div>
-      <a href="/in/bob-stone">Profile</a>
     </li>
-    <li class="search-results__list-item">
-      <div class="entity-result">
-        <h3 class="entity-result__title-text">Carol Vance</h3>
-        <p class="entity-result__summary">Engineer at Gamma</p>
+    <li role="listitem" componentkey="urn:li:fs_profile:fixture-3">
+      <a href="/miniprofile/fixture-carol/"><img alt=""></a>
+      <div>
+        <p>Carol Vance</p>
+        <p>Engineer at Gamma</p>
       </div>
-      <a href="/in/carol-vance">Profile</a>
     </li>
+  </ul>
+  <!-- Pagination: plain li elements with no role attribute. An unqualified
+       main li would match these first; the explicit role keeps them out. -->
+  <ul>
+    <li><button data-testid="pagination-indicator-0" aria-label="Page 1">1</button></li>
+    <li><button aria-label="Page 2">2</button></li>
   </ul>
 </main>
 </body>

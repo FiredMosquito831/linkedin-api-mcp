@@ -220,6 +220,15 @@ const POST_TEXT_SELECTORS = [
 ];
 const POST_TIMESTAMP_SELECTORS = ['.update-components-timestamp', '.update-feed-list__timestamp'];
 const POST_LINK_SELECTOR = 'a[href*="feed/update"], a[href*="posts/"], a[href*="activity"]';
+// Company post cards (measured 2026-10-23): the /company/<slug>/posts/ page
+// renders main [role="article"] cards with an h2 and a body block, no
+// mainFeed container and no reaction-controlled cards. The candidate follows
+// the shared post-card ladder and only applies to the companies.posts entry
+// that carries it; feed.list and posts.list keep the shared ladder untouched.
+const COMPANY_POST_CARD_SELECTORS = [
+  ...POST_CARD_SELECTORS,
+  'main [role="article"]',
+];
 
 // The first profile link in a card is often the avatar, which has no text, so
 // take the first link that actually renders a name.
@@ -262,7 +271,7 @@ async function hasEmptyState(page, pattern) {
 }
 
 async function runPostCards(ctx, page) {
-  const items = await findItems(page, POST_CARD_SELECTORS);
+  const items = await findItems(page, ctx.config.itemSelectors ?? POST_CARD_SELECTORS);
   if (!items) {
     if (await hasEmptyState(page, /haven.t posted yet|no posts yet|no posts to show|nothing to see for now/i)) {
       return { items: [], nextCursor: null, empty: true };
@@ -695,6 +704,21 @@ const POST_ITEM_SELECTORS = [
   ...SEARCH_ITEM_SELECTORS,
 ];
 const POST_SEARCH_TITLE_SELECTORS = [...SEARCH_TITLE_SELECTORS, ...POST_TEXT_SELECTORS];
+// Person rows (measured 2026-10-23): main [role="listitem"] cards with an anchor
+// whose href is not a /in/ link, an image, a name block and a headline block, and
+// a componentkey carrying a member URN. The row cannot be keyed on its link, and
+// an unqualified main li matches the pagination control first, so the row keeps
+// the explicit role inside main. The name and headline blocks are NOT measured:
+// the notes record that they exist, and class names are obfuscated, so the
+// candidates are structural paragraphs. The live check has to confirm them.
+// The legacy li.search-results__list-item stays as a fallback for older markup.
+const PERSON_ITEM_SELECTORS = [
+  'main [role="listitem"]',
+  'li.search-results__list-item',
+];
+const PERSON_TITLE_SELECTORS = [...SEARCH_TITLE_SELECTORS, 'p:not(:empty)'];
+// The headline is the second paragraph block in the card.
+const PERSON_SNIPPET_SELECTORS = [...SEARCH_SNIPPET_SELECTORS, 'p:not(:empty) ~ p:not(:empty)'];
 
 async function runSearch(ctx, page) {
   const items = await findItems(page, ctx.config.itemSelectors ?? SEARCH_ITEM_SELECTORS);
@@ -715,7 +739,7 @@ async function runSearch(ctx, page) {
     const record = {
       type: ctx.config.kind,
       title: await textOf(row, ctx.config.titleSelectors ?? SEARCH_TITLE_SELECTORS, { required: true, label: 'result title' }),
-      snippet: await textOf(row, SEARCH_SNIPPET_SELECTORS),
+      snippet: await textOf(row, ctx.config.snippetSelectors ?? SEARCH_SNIPPET_SELECTORS),
       url: null,
     };
     const link = row.locator('a[href]');
@@ -1093,6 +1117,9 @@ const OPS = {
     searchRoute: '/search/results/people/',
     searchOrigin: 'GLOBAL_SEARCH_HEADER',
     kind: 'person',
+    itemSelectors: PERSON_ITEM_SELECTORS,
+    titleSelectors: PERSON_TITLE_SELECTORS,
+    snippetSelectors: PERSON_SNIPPET_SELECTORS,
     requiredQuery: true,
     run: runSearch,
   },
@@ -1135,6 +1162,7 @@ const OPS = {
     families: ['/company/'],
     requiredUrl: true,
     normalizeUrl: normalizeCompanyPostsUrl,
+    itemSelectors: COMPANY_POST_CARD_SELECTORS,
     run: runPostCards,
   },
   'jobs.saved': { families: ['/jobs/saved/'], defaultUrl: `${LINKEDIN_ORIGIN}/jobs/saved/`, run: runJobCards },
