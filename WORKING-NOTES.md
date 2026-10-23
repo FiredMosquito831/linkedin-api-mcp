@@ -336,6 +336,8 @@ READ-ONLY: no git writes, no edits outside its scratch and the spec; **no live c
 | 0.3.2 | 2026-10-22 | #8 (`37e3386`) | Live-verification fixes; OIDC publish; tag, main and registry `gitHead` agree; tarball verified. |
 | 0.3.3 | 2026-10-23 | #9 (`96909b2`) | Visibility-aware challenge detector. 344 tests; six CI jobs; publish `39865260123`; registry verified; release v0.3.3 at `96909b2`. |
 | 0.3.4 | 2026-10-23 | #10 (`98e34c0`) | `search.companies` + `search.posts` row parsers; `analytics.profile-views` → `ACCESS_RESTRICTED`. 349 tests; six CI jobs; publish `39937631339`; registry and provenance verified; release v0.3.4 at `98e34c0`. Live-confirmed: 3 + 3 populated rows, analytics restricted. |
+| 0.3.5 | 2026-10-23 | #11 (`ce8ec52`) + #12 (`3b4a078`) | `live-check` accepts any catalog read and gains `--all-reads`; an input that does not match is reported skipped, never failed. 364 tests. **Publication was blocked twice by Windows-only test failures on the merge commit**: first `pack:smoke` `ETIMEDOUT`, then `EBUSY` unlinking `chrome_debug.log`. PR #12 (test-only, no bump) added bounded `rm` retries; merged as `3b4a078`, which is the published `gitHead`. Publish run success; registry `latest` = 0.3.5, integrity and provenance verified; release v0.3.5 at `3b4a078`. |
+| 0.3.6 | 2026-10-23 | #13 (`5400528`) | `companies.posts` parses `main [role="article"]` cards; `search.people` parses `main [role="listitem"]` cards with title + url. 366 tests; eight mutations; six CI jobs; publish success; registry `latest` = 0.3.6, integrity and provenance verified; release v0.3.6 at `5400528`. **Live: `search.people` 3 rows with title+url on all 3; `companies.posts` 3 rows with text only — no title, no permalink (partial).** |
 
 ---
 
@@ -350,6 +352,7 @@ READ-ONLY: no git writes, no edits outside its scratch and the spec; **no live c
 - A 403 is not proof a CAPTCHA appeared; an error class is not a diagnosis. (2026-10-22/23.)
 - **A probe can be wrong in a way that looks like product failure.** A tree dump capped at depth 7 returned "no rows" for four pages that do have rows. Say "my probe could not see it", not "it is not there". (2026-10-23.)
 - **The same adapter can disagree with itself across runs.** `jobs.search` parsed 3 rows in one probe and reported `LAYOUT_UNSUPPORTED` in a live-check an hour later; unchanged code, unchanged fixture. Environmental causes (page variation, throttling after ~30 navigations in an hour) are the likely explanation, and the honest record says "unexplained" rather than picking one. (2026-10-23.)
+- **`ok` and "populated" are different claims.** `companies.posts` returned `ok` from the live check with three rows, but every row's title and url were empty; only the text field was present. A status line is not a field check — count the fields before calling a family fixed. (2026-10-23, 0.3.6.)
 
 ## IX.2 Agents and briefs
 - A cut-off or overly broad brief produces an agent that fixes what it should not; the NOT-in-scope list must be explicit.
@@ -367,6 +370,9 @@ READ-ONLY: no git writes, no edits outside its scratch and the spec; **no live c
 - **`gh pr merge` refuses a draft**; `gh pr ready` first.
 - `npm view` caches; read the registry document instead.
 - Git Bash on Windows emits `bash.exe.stackdump`; it is noise, not an artifact.
+- **A green PR does not mean a green main.** The merge commit gets its own CI run, and a flaky job there blocks publication. Both 0.3.5 failures were on windows/Node 24 only, in jobs that had passed on the PR: first `pack:smoke` `spawnSync ... ETIMEDOUT` (SIGTERM after ~3 min), then `EBUSY: resource busy or locked, unlink ... chrome_debug.log` during test cleanup. Recovery for a flake is `gh run rerun <id> --failed`; a repeat means a real test defect. (2026-10-23.)
+- **Never merge a version bump while the previous version is still unpublished.** `npm.yml` skips a version it finds already published and publishes whatever `package.json` says on the successful main push. Merging 0.3.6 before 0.3.5 published would have skipped 0.3.5 permanently. Check the registry, not the merged PR, before the next merge. (2026-10-23.)
+- **Windows holds a Chromium profile for a moment after close.** Deleting the temp profile immediately fails with `EBUSY`; `fs.rm` with `maxRetries` and `retryDelay` covers exactly that class. (2026-10-23.)
 
 ## IX.4 Product and scope
 - Experimental is not compliant or safe: browser automation raises account risk, and the first write attempt drew a verification challenge.
@@ -377,7 +383,7 @@ READ-ONLY: no git writes, no edits outside its scratch and the spec; **no live c
 
 # PART X — STILL OPEN
 
-- **Priority now:** the remaining read families (QUEUE item 1), each needing a measured selector: `profile.skills`, `profile.contact`, `companies.get`, `companies.posts`, `jobs.get`, `jobs.apply-url`, `jobs.saved`, `invitations.received`, `invitations.sent`, `search.people`.
+- **Priority now:** the read families still failing, each needing a measured selector: `companies.get` (error-shaped page), `companies.posts` title/permalink (rows parse, fields do not), `jobs.get`, `jobs.apply-url`, `jobs.saved`, `invitations.received`, `invitations.sent`, `profile.skills`, `profile.contact`. `search.people`, `search.companies`, `search.posts` and `analytics.profile-views` are live-confirmed.
 - **Queued:** `QUEUE.md` (binding order). Item 4 — the live check cannot test most reads — is the one that unblocks verifying the rest.
 - **Held (own explicit go each):** live write verification (21 operations, one at a time, exact target and payload; `reactions.add`/`reactions.remove` first); OAuth login against a real developer app; row parsing on a non-empty account; `npm deprecate linkedin-api-mcp@0.0.0-stage`; plugin listing icon; the single spaced Sales 403 re-check.
 - **Awaiting the user's decision:** none right now.
