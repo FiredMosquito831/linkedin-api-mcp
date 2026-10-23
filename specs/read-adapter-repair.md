@@ -263,3 +263,20 @@ Structure-only, text-free. Raw: `.superpowers/diagnostics/read-probe-2-result.js
 **Method note (a defect in my probe, not in the product):** the tree walk stops at depth 7, which is above where LinkedIn puts row content. Four pages therefore yielded no usable row markup. A third, 4-navigation run with an unbounded depth and a row-anchored dump is needed before writing those selectors; guessing would violate the project's own rule.
 
 **Established here:** invitations and saved jobs are slow-rendering, not absent; jobs.saved shows 6 rows at 5 s; nothing about the profile rows, company post cards, job detail fields, or the two search row shapes.
+
+## PROBE 3 (2026-10-23 13:05 UTC+03 — 4 navigations, 0 mutations, no stop)
+
+Row-anchored dumps, unbounded depth, text-free. Raw: `.superpowers/diagnostics/read-probe-3-result.json` (git-ignored, 0600).
+
+| Page | Anchor tried | Result |
+|---|---|---|
+| `/in/:slug/` | `main section` | FOUND. A `section` at depth 0, inside `div > div[data-testid="lazy-column"]` with 14 children. Nested `section`s carry `componentkey` values under `com.linkedin.sdui.profile.*`. Headings and section bodies are present; the row markup is below what this dump followed (each level has exactly one child until the body). |
+| `/company/microsoft/posts/` | `[aria-label^="Reaction button state"]` | **NOT FOUND.** The company posts page renders no post card with a reaction control in this state. The earlier census showed `role="article"` and 16 `/company/` links, so something renders — but not post cards by the feed's own rule. Unknown whether scrolling would load them, and we do not scroll. |
+| `/jobs/view/:id/` | `[componentkey^="JobDetails_"]` | FOUND, but the node is **empty** (`len=0`, `kids=0`) 2.5 s after load — a placeholder. The detail content mounts elsewhere or later. |
+| `/search/results/people/` | `main li` | FOUND, but the first match is the **pagination button** (`data-testid="pagination-indicator-0"`), parent `ul` with 10 siblings. Person rows exist as `li`s but carry **no anchors** (first probe: zero `href` in `main`), so a row cannot be identified by its link. |
+
+**What this settles:** the search *companies* and *posts* families have reliable, measured row signatures (`li` containing `a[href*="/company/"]`; `li` containing a reaction control). The search *people* family does not — its rows have no anchors and the obvious `main li` anchor hits pagination first.
+
+**What it does not settle:** the profile section row markup, the company-post card shape on this account, the job detail mount point, and a reliable people-row signature. These are exactly the cases where a guessed selector would be a fabricated fact.
+
+**Decision carried forward:** implement the candidates the probes measured (companies, posts, and the profile/company/job ladders where a structural candidate exists), keep every existing candidate, and leave any family whose row markup is still unknown unchanged rather than guessed. One live `experimental live-check` after the change tells us which candidates actually resolve.
