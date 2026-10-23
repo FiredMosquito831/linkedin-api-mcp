@@ -319,3 +319,46 @@ test('a failing read is navigated once and never retried', async () => {
   assert.equal(await liveCheck(['--operations', 'profile.get,posts.list'], deps), 1);
   assert.equal(navigations.length, 2);
 });
+
+test('an input the adapter rejects before navigating is skipped, not failed, and never navigates', async () => {
+  // A company URL does not fit posts.get. The adapter rejects it before it navigates,
+  // so the operation was never attempted and must not count as failed.
+  const { deps, navigations, stdout } = cliFixture();
+  assert.equal(await liveCheck(['--operations', 'posts.get,profile.get', '--url', 'https://www.linkedin.com/company/example/'], deps), 0);
+  assert.ok(stdout.value.includes('posts.get: skipped (input does not match this operation)\n'), stdout.value);
+  assert.ok(!stdout.value.includes('posts.get: failed'), stdout.value);
+  assert.deepEqual(navigations, ['https://www.linkedin.com/in/me/']);
+  assert.ok(stdout.value.includes('\n1 checked: 0 ok, 1 unsupported, 0 failed. 1 skipped.\n'), stdout.value);
+});
+
+test('an input the catalog rejects is skipped before any navigation', async () => {
+  // A 301-character query breaks the catalog's 300-character limit, while the adapter
+  // accepts up to 500. Only the catalog check keeps this read from reaching the browser.
+  const { deps, navigations, stdout } = cliFixture();
+  const longQuery = 'x'.repeat(301);
+  assert.equal(await liveCheck(['--operations', 'search.companies,profile.get', '--query', longQuery], deps), 0);
+  assert.ok(stdout.value.includes('search.companies: skipped (input does not match this operation)\n'), stdout.value);
+  assert.deepEqual(navigations, ['https://www.linkedin.com/in/me/']);
+  assert.ok(stdout.value.includes('\n1 checked: 0 ok, 1 unsupported, 0 failed. 1 skipped.\n'), stdout.value);
+});
+
+test('an operation rejected before navigation is reported as skipped by the runner', async () => {
+  const report = await runLiveCheck({
+    operations: ['posts.get'],
+    execute: async () => { throw Object.assign(new Error('rejected before navigation'), { notAttempted: true }); },
+    now: makeNow(),
+  });
+  assert.deepEqual(report.results, [
+    { operation: 'posts.get', status: 'skipped', detail: 'input does not match this operation', durationMs: 100 },
+  ]);
+});
+
+test('summarizeReport counts skipped operations apart from checked ones', () => {
+  const summary = summarizeReport({ results: [
+    { operation: 'profile.get', status: 'ok', detail: 'Succeeded.', durationMs: 1 },
+    { operation: 'posts.get', status: 'skipped', detail: 'input does not match this operation', durationMs: 1 },
+  ] });
+  assert.equal(summary.checked, 1);
+  assert.equal(summary.skipped, 1);
+  assert.equal(summary.failed, 0);
+});

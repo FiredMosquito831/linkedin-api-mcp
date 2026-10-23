@@ -9,8 +9,9 @@
 // write path is reachable from here, and a result never contains a page body,
 // a token, or a cookie. It is never run automatically.
 
-import { LIVE_READ_OPERATIONS, catalogReadOperations, requiredInputs, runLiveCheck, summarizeReport } from './live-check.js';
+import { LIVE_READ_OPERATIONS, NOT_ATTEMPTED_DETAIL, catalogReadOperations, requiredInputs, runLiveCheck, summarizeReport } from './live-check.js';
 import { gate, flags } from './cli.js';
+import { validateInput } from '../operations/catalog.js';
 import { createReadAdapter } from '../operations/reads.js';
 import { openSurfaceSession } from '../operations/session.js';
 import { accountPaths, createAccountStore, stateDirectory } from '../operations/accounts.js';
@@ -45,6 +46,20 @@ function missingInputs(operation, options) {
 
 function inputFor(operation, options) {
   return Object.fromEntries(requiredInputs(operation).map((field) => [field, options[field]]));
+}
+
+const REJECTED_INPUT_CODES = new Set(['VALIDATION_ERROR', 'INVALID_INPUT']);
+
+// The catalog rejects some inputs before any adapter runs (for example a URL
+// outside LinkedIn). Only those rejections mean "does not match"; any other
+// validation outcome is left to the run.
+function inputRejected(operation, input) {
+  try {
+    validateInput(operation, input);
+    return false;
+  } catch (error) {
+    return REJECTED_INPUT_CODES.has(error?.code);
+  }
 }
 
 async function liveCheck(options, deps) {
@@ -82,8 +97,13 @@ async function liveCheck(options, deps) {
   const skipped = [];
   for (const operation of requested) {
     const missing = missingInputs(operation, options);
-    if (missing.length > 0) skipped.push({ operation, missing });
-    else checked.push({ operation, input: inputFor(operation, options) });
+    if (missing.length > 0) {
+      skipped.push({ operation, reason: `needs ${missing.map((field) => `--${field}`).join(' and ')}` });
+      continue;
+    }
+    const input = inputFor(operation, options);
+    if (inputRejected(operation, input)) skipped.push({ operation, reason: NOT_ATTEMPTED_DETAIL });
+    else checked.push({ operation, input });
   }
   if (checked.length === 0) {
     deps.stderr.write('Nothing to check: pass --url or --query for the selected operations.\n');
@@ -93,18 +113,37 @@ async function liveCheck(options, deps) {
   const open = deps.openSession ?? openSurfaceSession;
   const session = await open({ profileDirectory: paths.profile, headless: false });
   try {
-    const adapter = createReadAdapter(session);
+    // Records whether the current operation reached the browser. An input the
+    // adapter rejects before any navigation was never attempted.
+    let navigated = false;
+    const tracked = {
+      get page() { return session.page; },
+      navigate: (url) => { navigated = true; return session.navigate(url); },
+      check: () => session.check(),
+    };
+    const adapter = createReadAdapter(tracked);
     const report = await runLiveCheck({
       operations: checked.map((entry) => entry.operation),
-      execute: (operation) => adapter.execute(operation, checked.find((entry) => entry.operation === operation).input),
+      execute: async (operation) => {
+        navigated = false;
+        try {
+          await adapter.execute(operation, checked.find((entry) => entry.operation === operation).input);
+        } catch (error) {
+          if (!navigated && REJECTED_INPUT_CODES.has(error?.code)) {
+            throw Object.assign(new Error(NOT_ATTEMPTED_DETAIL), { notAttempted: true });
+          }
+          throw error;
+        }
+      },
     });
     const summary = summarizeReport(report);
     for (const line of summary.lines) deps.stdout.write(`${line}\n`);
-    for (const { operation, missing } of skipped) {
-      deps.stdout.write(`${operation}: skipped (needs ${missing.map((field) => `--${field}`).join(' and ')})\n`);
+    for (const { operation, reason } of skipped) {
+      deps.stdout.write(`${operation}: skipped (${reason})\n`);
     }
+    const skippedTotal = skipped.length + summary.skipped;
     deps.stdout.write(`\n${summary.checked} checked: ${summary.ok} ok, ${summary.unsupported} unsupported, ${summary.failed} failed.`);
-    deps.stdout.write(skipped.length ? ` ${skipped.length} skipped.\n` : '\n');
+    deps.stdout.write(skippedTotal ? ` ${skippedTotal} skipped.\n` : '\n');
     if (summary.failed > 0) {
       deps.stderr.write('Some adapters failed. The report holds no page content, so read the failure detail only.\n');
       return 1;

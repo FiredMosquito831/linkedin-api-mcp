@@ -111,7 +111,7 @@ To check every catalog read, once each, in catalog order:
 linkedin experimental live-check --all-reads
 ```
 
-`--all-reads` cannot be combined with `--operations`. A read that needs `--url` or `--query` is skipped unless you pass it, so `--all-reads` alone runs 13 reads and skips 20. One `--url` or `--query` value is given to every read that needs it. A read whose target does not fit fails before it navigates, and is reported as `failed (Failed: INVALID_INPUT)`. To check a read against its own target, run it on its own with `--operations`.
+`--all-reads` cannot be combined with `--operations`. A read that needs `--url` or `--query` is skipped unless you pass it, so `--all-reads` alone runs 13 reads and skips 20. One `--url` or `--query` value is given to every read that needs it. A read whose target does not fit is never navigated: the catalog or the adapter rejects the input first, and the read is reported as `skipped (input does not match this operation)` and counted as skipped, not as failed. To check a read against its own target, run it on its own with `--operations`.
 
 To use a named account:
 
