@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><title>Posts | Acme</title></head>
+<body>
+<!-- Shape mirrors the measured 2026-10-23 company posts page: no
+     data-testid="mainFeed", no reaction-controlled cards, and main
+     [role="article"] cards with an h2 and a body block. Text and URLs are
+     synthetic. The suggested-company li card is a non-article decoy: it must
+     not parse. -->
+<nav>
+  <ul role="list">
+    <li role="listitem">Jobs</li>
+    <li role="listitem">About</li>
+  </ul>
+</nav>
+<main>
+  <div role="article" componentkey="org-update-fixture-1">
+    <h2>Acme</h2>
+    <div class="update-components-text">Acme shipped a bounded read adapter for its own account.</div>
+    <a href="/feed/update/urn:li:activity:555666777">Open post</a>
+    <button>See more</button>
+  </div>
+  <ul>
+    <li class="suggested-company-card">
+      <h2>Beta Corp</h2>
+      <div class="update-components-text">Suggested company, not a post.</div>
+      <a href="/company/beta-corp/">View company</a>
+      <button>Follow</button>
+    </li>
+  </ul>
+  <div role="article" componentkey="org-update-fixture-2">
+    <h2>Acme</h2>
+    <div class="update-components-text">Second company card, reached only by a wider limit.</div>
+    <a href="/feed/update/urn:li:activity:666777888">Open post</a>
+  </div>
+</main>
+</body>
+</html>
