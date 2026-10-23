@@ -1,6 +1,6 @@
 # Packaging recommendations
 
-Status: package and plugin metadata are implemented; the npm package is **not published**. The GitHub repository is public. GitHub-based plugin routes use the files pushed to GitHub and merged into the default branch; the local-clone route is also available. The JSON block below records the packaging decision, not a second manifest to execute. See package.json for the current dependency pins. Nothing here publishes anything.
+Status (updated 2026-10-23): the packaging decision below was implemented and the package **is published** — `linkedin-api-mcp` on npm, `latest` = `0.3.4`, published by the OIDC workflow with provenance. The version numbers quoted in this document (0.2.0, 0.1.0) are the snapshot from when the decision was made; `package.json` and `.claude-plugin/plugin.json` are the current truth. The GitHub repository is public. GitHub-based plugin routes use the files pushed to GitHub and merged into the default branch; the local-clone route is also available. The JSON block below records the packaging decision, not a second manifest to execute. See package.json for the current dependency pins. Nothing here publishes anything.
 
 ## 1. Reference-repo convention comparison
 
@@ -23,7 +23,7 @@ Sources: [ase-moodle-mcp](https://github.com/FiredMosquito831/ase-moodle-mcp) (`
 
 - The marketplace git-clone fetches the whole repo; the entry `source: "./"` makes the repo root the plugin root, so `.claude-plugin/plugin.json`, `.mcp.json`, `skills/linkedin/SKILL.md`, and `bin/` all live under one self-contained plugin.
 - With `package.json` + `package-lock.json` (lockfileVersion 3) at the plugin root, Claude Code auto-installs dependencies into the cached plugin copy on install/update: npm, frozen lockfile versions, registry-only pins, `--ignore-scripts`, 60 s cap. All current dependencies are exact-pinned registry packages, so this works. Keep `package.json` deps in sync with the lockfile, or the install is skipped.
-- `plugin.json` pins `"version": "0.2.0"`: users stay on the cached copy until the version string changes. Bump it with each npm release.
+- `plugin.json` pins `"version"`: users stay on the cached copy until the version string changes. Bump it with each npm release (`npm run bump` moves package, lockfile and plugin together).
 - Capability semantics: the plugin default is **capability-only** — the server lists no LinkedIn operations at all. The `experimental` `userConfig` boolean is substituted as the string `true`/`false` into `LINKEDIN_EXPERIMENTAL`; the server gate accepts `true` or `1`, everything else stays off. Writes stay prepare-only in every mode; approval happens in the separate CLI.
 - A top-level `bin/` directory makes Claude Code put it on the Bash tool's PATH, and claude.ai/Cowork refuse to install such a plugin. Fine for the GitHub marketplace; it only matters if the plugin is ever submitted to Anthropic's directory or a claude.ai org.
 - `claude plugin validate` accepts the manifests but warns about the root `CLAUDE.md` (project config, not loaded as plugin context) and the missing listing icon. The project now uses Apache-2.0, matching both reference repositories, with `LICENSE`, `NOTICE`, and license fields in npm/plugin metadata.
@@ -31,7 +31,7 @@ Sources: [ase-moodle-mcp](https://github.com/FiredMosquito831/ase-moodle-mcp) (`
 
 ## 2. Recommended `package.json` (exact edits)
 
-Replace/add the marked keys; everything else stays as is. The JSON block is the machine-readable target that `test/packaging.test.js` checks against the files whitelist rules.
+Replace/add the marked keys; everything else stays as is. This block is the **2026-10-22 decision snapshot at 0.2.0**; the live manifest carries a later version and is the source of truth. The JSON block is the machine-readable target that `test/packaging.test.js` checks against the files whitelist rules.
 
 ```json
 {

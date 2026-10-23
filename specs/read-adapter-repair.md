@@ -298,3 +298,19 @@ This turns the 0.3.4 candidates from fixture-only into live-verified for these t
 **Discrepancy to explain, not to paper over:** the same live-check run reported `jobs.search` as `LAYOUT_UNSUPPORTED`, while the 12:01 probe parsed 3 job items and the 12:40 structure probe found 25 job cards. The adapter's job path did not change in 0.3.4, and the jobs fixture output is byte-identical. The difference is therefore environmental — most plausibly page variation or throttling after roughly 30 read navigations in one hour. It is recorded as unexplained, and no retry was attempted.
 
 by FiredMosquito831
+
+## PROBE 4 (2026-10-23 15:10 UTC+03 — 6 navigations, 0 mutations, no stop)
+
+| Page | Anchor | Result |
+|---|---|---|
+| `/jobs/saved/` | `ul` | FOUND but it is the **site nav** (inside `<nav>`, parent has one sibling, six short rows). Not the saved list. Inconclusive. |
+| `/mynetwork/invitations/` | `section` | FOUND but it is the page **header section** (`header > h2` plus an empty `div role="alert"`). Not the list. Inconclusive. |
+| `/company/microsoft/posts/` | `main [role="article"]` | **FOUND — a real post card**: 3186 characters, an `h2` inside, a body block and a button. Row selector confirmed. |
+| `/in/:slug/` | `section` whose heading matches `skills` / `contact info` | **NOT FOUND** for either. The headings are not present at 3 s on this page. Inconclusive (lazy sections, or different wording). |
+| `/jobs/view/:id/` | `main h2` | FOUND, 28 characters, single node. Consistent with a job title but not proven to be one. Candidate only. |
+| `/search/results/people/` | `main [role="listitem"]` | **FOUND — a real person card**: anchor, image, name and headline blocks, and a `componentkey` carrying a member URN. Row selector confirmed. |
+
+**Confirmed this round:** `companies.posts` rows = `main [role="article"]`; `search.people` rows = `main [role="listitem"]`.
+**Still unmeasured:** `jobs.get`/`jobs.apply-url` (title candidate only), `jobs.saved`, `invitations.received`/`sent`, `profile.skills`/`props.contact`, `companies.get`.
+
+**Method note:** an unqualified `ul` and an unqualified `section` both match navigation and header chrome before the content list. Future probes must anchor inside the content region or by a repeated-sibling signature, not by tag alone.
