@@ -220,3 +220,28 @@ The user's words: "all rec but for 5 do retry and or bypass" and "also i approve
 Separately approved and completed: GitHub release **v0.3.3** published, tag resolving to the merge SHA `96909b2`.
 
 by FiredMosquito831
+
+## PROBE RESULTS (2026-10-23 12:10 UTC+03 — APPROVED BUDGET, 12 NAVIGATIONS, 0 MUTATIONS)
+
+Run with `.superpowers/diagnostics/read-probe.mjs` on the saved `default` profile after an own-account identity check. Navigation only; structure-only census; the raw file is `.superpowers/diagnostics/read-probe-result.json` (git-ignored, mode 0600) and contains counts and masked keys, never page text.
+
+**Outcome: 13 of 14 probed operations still returned `LAYOUT_UNSUPPORTED`; `jobs.search` parsed 3 items. No stop, no challenge, no 401/403/429, 12 navigations.**
+
+| Family | Final route | `main` present | What the census shows | Diagnosis |
+|---|---|---|---|---|
+| `profile.skills`, `profile.contact` | `/in/:slug/` | yes | 9 `section`, 9 `h2`, `data-section-id` **absent**, page text contains the words "Skills" and "Contact info" | CONFIRMED: the sections render; the adapter's key (`data-section-id`) does not exist. Fix: find the `section` by its heading text. |
+| `invitations.received`, `invitations.sent` | `/mynetwork/invitations/` and `/outgoing/` | **no** | 43 div, no testids, no links, 4 iframes, roles alert/region | UNVERIFIED: a shell that never rendered, or an interstitial. Needs one contingency navigation with a 10 s settle. |
+| `companies.get` | `/company/microsoft/` | **no** | 41 `code` elements, 21 img, roles alert/region | UNVERIFIED: looks like an error page, not a company page. This passed on 2026-10-22 and failed on 10-23 with an unchanged selector list. Needs a contingency look at the status/route. |
+| `companies.posts` | `/company/microsoft/posts/` | yes | 210 div, `role="article"` present, 16 `/company/` links, `data-testid="mainFeed"` **absent** | CONFIRMED: posts render; the adapter's container key is wrong. Fix: `main [role="article"]`. |
+| `jobs.get`, `jobs.apply-url` | `/jobs/view/:id/` | yes | one `h2`, **no `h1`**, `componentkey` starting `JobDetails_`, 3 buttons, 23 links | CONFIRMED: the detail pane is present under a `JobDetails_` component; the adapter expects the title elsewhere. Fix: title from that component; apply control by label. |
+| `jobs.saved` | `/jobs/saved/` | **no** | 102 div, roles alert/region, no links | UNVERIFIED: shell or redirect. Needs one contingency navigation with a 10 s settle. |
+| `search.people` | `/search/results/people/` | yes | `role="listitem"` present, pagination testids present, **zero anchors**, member URN tokens in `componentkey` | CONFIRMED: results render as non-anchor rows; the adapter's job-only row selectors cannot match. Fix: `main li[role="listitem"]`-family rows. |
+| `search.companies` | `/search/results/companies/` | yes | 19 `/company/` anchors, `role="listitem"` | CONFIRMED: rows are anchors to company pages. Fix: `main li` containing `a[href*="/company/"]`. |
+| `search.posts` | `/search/results/content/` | yes | 6 elements with `aria-label^="Reaction button state"`, `componentkey` carrying `FeedType_FLAGSHIP_SEARCH` | CONFIRMED: the same post-card rule the feed reader already uses applies here. |
+| `analytics.profile-views` | **`/feed/`** (redirected) | yes | feed markup | CONFIRMED: the route redirects away. This is an access restriction, not a selector bug; report it as `ACCESS_RESTRICTED`, not `LAYOUT_UNSUPPORTED`. |
+
+**What this changes in the plan:** five families have a confirmed selector cause and can be implemented now with fixtures (profile sections, company posts, job detail, all three searches). Three routes (both invitation lists, saved jobs) never produced a `main` element and one (companies.get) produced an error-shaped page; those need the 3 contingency navigations already budgeted to tell "slow render" from "genuinely unavailable". `analytics.profile-views` needs no selector work — it needs the correct error class.
+
+**Not established:** whether the shell pages render after 10 s (the first probe waited 5 s only on operations that succeeded); why `companies.get` regressed between 10-22 and 10-23; whether the account is entitled to profile analytics.
+
+by FiredMosquito831
