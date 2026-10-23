@@ -205,3 +205,18 @@ Per operation: `op`, `code`, `messageCategory`, `finalPathShape`, `census` (coun
 - Pre-existing and untouched: the untracked `bash.exe.stackdump` in the repo root, and the seven worktrees under `.claude/worktrees/` (HANDOFF-2026-10-23.md section 1, "do not delete").
 
 by FiredMosquito831
+
+## USER DECISIONS (2026-10-23 09:10 UTC+03, binding)
+
+The user's words: "all rec but for 5 do retry and or bypass" and "also i approve github release tag".
+
+1. **Family by family, search family first.** As recommended.
+2. **Probe budget approved:** the 12 navigations of section 4.2, plus at most 3 contingency navigations, each needing its own approval, hard cap 15. No job URL was supplied, so navigation #6 (read one `/jobs/view/` link from a search page) runs.
+3. **Empty state stays fail-closed.** Zero rows with no explicit marker is `LAYOUT_UNSUPPORTED`; markers are added only where the probe confirms them.
+4. **No second account is confirmed.** `profile.skills`, `invitations.received`, `invitations.sent` and `jobs.saved` row parsing stays UNVERIFIED until the user provides an account or a state with data.
+5. **Sales Navigator HTTP 403 — the request for "retry and or bypass" is resolved as follows.** Bypass is **REFUSED**: no header or user-agent change, no stealth, no proxy or account rotation, no challenge interaction, no repeated hammering. A 403 is LinkedIn refusing access, and the project's standing rule forbids defeating platform controls. Permitted instead: **one** deliberate read-only re-navigation of the same route in a later session, spaced apart, counted against a stated budget, stopping again immediately on any 403, checkpoint, or challenge. Timing: **after this arc**, as recommended. If the route returns 403 again, the operation is recorded as access-refused and left alone.
+6. **`jobs.apply-url`** returns `applyUrl: null` with the note `easy_apply` instead of `apply_url_not_found` when the probe shows an in-app apply flow.
+
+Separately approved and completed: GitHub release **v0.3.3** published, tag resolving to the merge SHA `96909b2`.
+
+by FiredMosquito831
