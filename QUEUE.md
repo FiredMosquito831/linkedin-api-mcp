@@ -8,9 +8,7 @@ Spec paths are under `specs/`. "User decisions" names the binding block inside t
 
 ## RUNNING
 
-**2026-10-23 — 0.3.4 SHIPPED AND VERIFIED. Nothing running.** PR #10 merged as `98e34c0` after six green CI jobs; published by run `39937631339`; registry `latest` = 0.3.4, `gitHead` = merge SHA, tarball SHA-512 matched `dist.integrity`, provenance present. No GitHub release/tag for 0.3.4 yet. The read-adapter arc continues with the families below.
-
-_(no production PR running)_
+**2026-10-23 — RUNNING: item 4 (live-check coverage).** One haiku implementer, worktree `.claude/worktrees/impl-live-check`, branch `feat/live-check-all-reads`, targeting 0.3.5 (PATCH). Spec `specs/live-check-coverage.md`, decisions recorded. It stops at a green PR; the orchestrator merges on green and verifies the publication. Item 3 (doc drift) is done and pushed. Item 1 continues afterwards with the two row shapes probe 4 confirmed (`companies.posts` = `main [role="article"]`, `search.people` = `main [role="listitem"]`).
 
 ---
 
