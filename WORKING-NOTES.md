@@ -314,7 +314,8 @@ READ-ONLY: no git writes, no edits outside its scratchpad and the spec; **no liv
 | 0.2.2 | 2026-10-22 | #5 | Wait for npm registry replication before failing a publish. |
 | 0.3.1 | 2026-10-22 | #7 | Tune adapters against live LinkedIn (selectors keyed on testids/labels/roles). |
 | 0.3.2 | 2026-10-22 | #8 (`37e3386`) | Live-verification fixes; published by OIDC with provenance; tag, main, and registry `gitHead` agree; tarball integrity verified independently. |
-| 0.3.3 | 2026-10-23 | #9 (`96909b2`) | Visibility-aware challenge detector (hidden 0×0 reCAPTCHA no longer counts as a challenge; visible prompts still stop). 344 tests green; six-job CI green; publish run `39865260123` succeeded; registry `latest` = 0.3.3, `gitHead` = merge SHA, downloaded tarball SHA-512 matched `dist.integrity`, SLSA provenance present. No GitHub release/tag created (awaiting the user's go). |
+| 0.3.3 | 2026-10-23 | #9 (`96909b2`) | Visibility-aware challenge detector (hidden 0×0 reCAPTCHA no longer counts as a challenge; visible prompts still stop). 344 tests green; six-job CI green; publish run `39865260123` succeeded; registry `latest` = 0.3.3, `gitHead` = merge SHA, downloaded tarball SHA-512 matched `dist.integrity`, SLSA provenance present. GitHub release **v0.3.3** published at `96909b2` (first attempt targeted the docs commit; deleted and recreated at the merge SHA). |
+| 0.3.4 | 2026-10-23 | #10 (`98e34c0`) | `search.companies` and `search.posts` now parse real rows (per-kind ladders appended after the shared job ladder; the shared list is untouched); `analytics.profile-views` reports `ACCESS_RESTRICTED` when the route redirects away, via an opt-in `redirectRestricted` flag that no other operation sets. 349 tests green; six-job CI green; publish run `39937631339` succeeded; registry `latest` = 0.3.4, `gitHead` = merge SHA, tarball SHA-512 matched `dist.integrity`, provenance present. Verified myself: full suite, the diff, the fixtures, and a mutation (removing the posts candidate fails its test). Deviation: the implementer's scratch script made one anonymous request to LinkedIn's login URL (no cookies, no saved profile) — reported by the agent, file marked DO NOT RUN, git-ignored. No GitHub release/tag for 0.3.4 yet. |
 
 ---
 
@@ -334,6 +335,8 @@ One bullet per lesson, with the evidence that makes it memorable and its origin.
 ## IX.2 Agents and briefs
 - A cut-off or overly broad brief produces an agent that "fixes" what it should not; the brief names the NOT-in-scope list explicitly.
 - Run scripts from the repo root: invoking from a skill directory created a stray `.superpowers/` inside the plugin cache.
+- **"No live calls" must name the network, not just the destination.** An implementer honored "do not navigate to linkedin.com" but wrote a scratch probe to simulate a redirect; an un-intercepted 302 let the browser follow it and it reached LinkedIn's login URL anonymously. The brief needs: no browser launch against any real origin, every redirect intercepted or the context closed, and a scratch script may not be run at all once it can reach the network. (2026-10-23, 0.3.4.)
+- A haiku implementer will add the *necessary* adjacent change when a required field would otherwise still fail (it added per-kind title ladders alongside per-kind row ladders). Check that the addition is still inside the stated scope and say so in the review note.
 
 ## IX.3 Shell and tooling traps on this machine
 - **`npm test -- --flag` silently drops the flag.** npm ignores unknown CLI arguments; use `node --test` directly when a flag matters. (2026-10-22.)
