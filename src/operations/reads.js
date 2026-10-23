@@ -768,6 +768,11 @@ const COMPANY_NAME_SELECTORS = [
   '[data-test-id="org-header"] h1',
   // Live markup: the company name is the page's only h1.
   'main h1',
+  // Measured 2026-10-23: /company/<slug>/ renders with no <main> element. Scoped
+  // candidates come before the page-level h1 so an earlier site heading cannot win.
+  '[role="main"] h1',
+  'section h1',
+  'h1',
 ];
 
 function companySlug(url) {
@@ -852,7 +857,8 @@ async function runJobGet(ctx, page) {
   return {
     id: jobIdFromUrl(ctx.url),
     url: ctx.url,
-    title: await textOf(page, ['#job-title', 'h1.job-title', '.show-more-less-text__h3', 'h1'], {
+    // Measured 2026-10-23: the job title is an h2 inside main; the h1 candidates stay first.
+    title: await textOf(page, ['#job-title', 'h1.job-title', '.show-more-less-text__h3', 'h1', 'main h2'], {
       required: true,
       label: 'job title',
     }),
@@ -872,7 +878,8 @@ const APPLY_LINK_SELECTORS = [
 ];
 
 async function runJobApplyUrl(ctx, page) {
-  await textOf(page, ['#job-title', 'h1.job-title', '.job-card-list__title'], {
+  // Page-presence check only: the apply-link selectors below are unchanged.
+  await textOf(page, ['#job-title', 'h1.job-title', '.job-card-list__title', 'main h2'], {
     required: true,
     label: 'job page',
   });
