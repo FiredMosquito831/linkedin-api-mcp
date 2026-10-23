@@ -363,3 +363,16 @@ first h1: 9 characters, parent a div
 **The real defect in `companies.get` is the absence of a wait.** `textOf(..., { required: true })` takes one immediate count and throws; `findItems` already has a bounded settle for lists. The 0.3.7 fallbacks are therefore not the fix (they are harmless), and the next change is to give required single-field reads the same bounded settle the list readers already use.
 
 Recorded for the record: the 0.3.7 release notes say `companies.get` remains unsupported, which is true of 0.3.7 and is superseded by this measurement.
+
+## LIVE RESULT OF 0.3.8 (2026-10-23 20:25 UTC+03 — 3 navigations, read-only)
+
+Same script as the 0.3.7 check, run against the merged settle change:
+
+| Operation | 0.3.7 | 0.3.8 | Reading |
+|---|---|---|---|
+| `companies.get` | `LAYOUT_UNSUPPORTED` | **parsed, `name` present** | the bounded settle was the fix; the selectors were fine. |
+| `jobs.get` | parsed (title) | parsed, `title` and `url` present | unchanged and still working. |
+
+`url`, `description` and `followers` were absent in that run, but `url` and `description` are not fields this adapter returns, so only `followers` is a genuine gap. It was not in scope and is recorded as such.
+
+**Conclusion for the company family:** the reader needs a wait, not a different selector. The 0.3.7 fallbacks remain (harmless, useful when the page has no `main`), and the 0.3.7 release note that says `companies.get` is unsupported is superseded by this measurement.
