@@ -8,7 +8,9 @@ Spec paths are under `specs/`. "User decisions" names the binding block inside t
 
 ## RUNNING
 
-**2026-10-23 — RUNNING: item 1, the two real defects.** One haiku implementer, worktree `.claude/worktrees/impl-company-job`, branch `fix/company-and-job-detail`, targeting 0.3.7: `companies.get` must read a page with no `<main>`; `jobs.get` must accept an `h2` title. The five likely-empty-state reads are **not** in that PR — they need an empty-state wording measurement first.
+**2026-10-23 — 0.3.7 and 0.3.8 SHIPPED AND VERIFIED. Nothing running.** 0.3.7 added company-name fallbacks and an `h2` job title; the fallbacks did not help because the page had not rendered. 0.3.8 added the bounded settle that was the actual fix: `companies.get` and `jobs.get` both parse live now. Registry `latest` = 0.3.8; releases v0.3.7 and v0.3.8 exist at their published commits.
+
+**All six releases this session** (0.3.3 → 0.3.8) are published with verified integrity and provenance, each with a GitHub release.
 
 **Live state after 0.3.6:** `search.people` 3 rows with title+url; `companies.posts` 3 rows with text only (no title, no permalink).
 
@@ -20,7 +22,7 @@ _(no production PR running)_
 
 | # | Item | Version / note | Spec + user decisions | What it does and why |
 |---|---|---|---|---|
-| 1 | **REMAINING READ FAMILIES** | RUNNING (0.3.7) for the two real defects; the rest needs a decision | `specs/read-adapter-repair.md` + PROBE 5 + USER DECISIONS 2026-10-23 | **Real defects, in flight:** `companies.get` (the page renders over a million characters with **no `<main>`**, and the reader requires `main h1`), `jobs.get`/`jobs.apply-url` (title is an `h2`, the reader wants `h1`). **Most likely empty states, not selector drift:** `jobs.saved`, `invitations.received`, `invitations.sent`, `profile.skills`, `profile.contact` — probe 5 found no rows at all on any of them (no job links, no list in any section, no skills or contact section). Proving that needs the empty-state wording measured, which means reading page text; that needs the user's decision. `companies.posts` title/permalink is a field-coverage gap, not row matching. |
+| 1 | **REMAINING READ FAMILIES** | PATCH per family, tier T1/T2 | `specs/read-adapter-repair.md` | **Real gaps left:** `companies.posts` returns text only (no title, no permalink) — a field-coverage gap; `jobs.apply-url` has never been verified live (its page-presence check now settles, but the apply link was not measured). **Most likely empty states, not selector drift:** `jobs.saved`, `invitations.received`, `invitations.sent`, `profile.skills`, `profile.contact` — probe 5 found no rows at all on any of them. Proving that needs the empty-state wording measured, which means reading page text; needs the user's decision. |
 | 2 | **ROW PARSING ON A NON-EMPTY ACCOUNT** | PATCH if a fix is needed, tier T1, **HELD until the account has data** | none yet | `posts.list`, `inbox.list`, `inbox.search`, `connections.list` only ever proved the empty-state path. Cannot be done on demand. |
 
 ---
@@ -29,6 +31,8 @@ _(no production PR running)_
 
 | Version | PR | Item | Spec + user decisions | What shipped |
 |---|---|---|---|---|
+| 0.3.8 | #15 (`16d0d51`) | **WAIT FOR REQUIRED FIELDS** | `specs/read-adapter-repair.md` + PROBE 6 | `textOf` gains an opt-in bounded settle (5 s, 200 ms step, same constants as `findItems`) used for the company name, job title and job-page presence check. 377 tests (my run); three mutations; fail-closed still bounded (≈5 s). Publish from `16d0d51`; integrity and provenance verified; release v0.3.8. **Live: `companies.get` parses with the name; `jobs.get` title + url.** |
+| 0.3.7 | #14 (`d331410`, published from `13b0035`) | **COMPANY WITHOUT MAIN + JOB TITLE FROM H2** | `specs/read-adapter-repair.md` | Company-name fallbacks (`[role="main"] h1`, `section h1`, `h1`) and a `main h2` job title. 373 tests; seven mutations. Live: job title fixed; company page still failed — the page had not rendered. Superseded by 0.3.8. |
 | 0.3.6 | #13 (`5400528`) | **COMPANY POSTS + PEOPLE SEARCH** | `specs/read-adapter-repair.md` + PROBE 4 | `companies.posts` rows = `main [role="article"]`; `search.people` rows = `main [role="listitem"]` with title and url from the card. 366 tests, 0 fail (my run); eight mutations verified by the agent; six CI jobs green; publish success; registry `latest` = 0.3.6 with matching integrity and provenance; release v0.3.6. **Live: people 3/3 title+url; company posts 3 rows text-only.** |
 | 0.3.5 | #11 (`ce8ec52`) + #12 (`3b4a078`) | **LIVE CHECK COVERS EVERY READ** | `specs/live-check-coverage.md` + USER DECISIONS 2026-10-23 | `--operations` accepts any catalog read; `--all-reads` is opt-in; the default run is byte-identical; an input that does not match is `skipped`, never `failed`. 364 tests (my run); mutations A and B proven; six CI jobs green after two Windows flakes (see below). Publish succeeded from `3b4a078`; release v0.3.5. |
 | 0.3.5 (follow-up) | #12 (`3b4a078`) | **WINDOWS TEST CLEANUP** | none (test-only) | Main CI failed twice on the merge commit: `pack:smoke` `ETIMEDOUT`, then `EBUSY` unlinking a Chromium `chrome_debug.log` during cleanup. Browser-backed tests now pass `maxRetries: 10, retryDelay: 100` to `rm`. 76 tests green locally; six CI jobs green. Test-only, no bump — which is exactly what let 0.3.5 publish from this commit. |
