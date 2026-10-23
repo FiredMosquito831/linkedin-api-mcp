@@ -334,3 +334,16 @@ Content-anchored selectors, because probe 4 proved a bare `ul` finds the site na
 - `companies.posts` (title/permalink) remains a field-coverage gap, not a row-matching gap.
 
 **Not done:** measuring the empty-state wording (needs an explicit decision, because it means reading page text), and any code change for these five families.
+
+## LIVE RESULT OF 0.3.7 (2026-10-23 19:20 UTC+03 — 3 navigations, read-only)
+
+`.superpowers/diagnostics/check-037-adapters.mjs`, saved `default` profile, identity confirmed first.
+
+| Operation | Result | Reading |
+|---|---|---|
+| `jobs.get` | parsed; `title` present, `url` present, `company` absent | **the h2 title fix works live.** The missing company field was never in this scope. |
+| `companies.get` | `LAYOUT_UNSUPPORTED` | **still broken.** The added fallbacks (`[role="main"] h1`, `section h1`, page `h1`) never match because the company page has **no `h1` at all** — the first census recorded `h2: 1` and no h1. Every h1-based candidate is dead on this page. |
+
+**What this establishes:** the company name is not an `h1` on `/company/microsoft/`. The next step is not another fallback guess but one measurement of where the name actually lives (a `[data-testid]`/`componentkey`/`h2` census on that page). Until then `companies.get` stays failing closed, and the 0.3.7 fallbacks are harmless additions that simply do not help this page.
+
+**Not done:** no further attempt on `companies.get`; no change to the other families.
