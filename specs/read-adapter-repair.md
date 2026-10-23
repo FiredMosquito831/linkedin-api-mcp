@@ -245,3 +245,21 @@ Run with `.superpowers/diagnostics/read-probe.mjs` on the saved `default` profil
 **Not established:** whether the shell pages render after 10 s (the first probe waited 5 s only on operations that succeeded); why `companies.get` regressed between 10-22 and 10-23; whether the account is entitled to profile analytics.
 
 by FiredMosquito831
+
+## PROBE 2 (2026-10-23 12:40 UTC+03 — 8 navigations, 0 mutations, no stop)
+
+Structure-only, text-free. Raw: `.superpowers/diagnostics/read-probe-2-result.json` (git-ignored, 0600).
+
+| Route | Settle | What changed | Conclusion |
+|---|---|---|---|
+| `/mynetwork/invitations/` | 0 / 5 / 10 s | elements 90 → 109 → 110; **no `<main>` at any point**; sections, `h2`s and anchors render | the page does render; the missing `<main>` is not the cause because `findItems` is page-wide (`reads.js:106-117`). The row selectors are. |
+| `/jobs/saved/` | 0 / 5 / 10 s | 44 → **293** elements at 5 s, then flat; a `ul` with 6 `li` rows, each `li > a` | rows appear late but appear; a reader that gives up before 5 s (or expects a `main` subtree) fails. |
+| `/jobs/search/` | 2.5 s | `ul` with 25 `li` job cards | reference shape for a working list. |
+| `/company/microsoft/posts/` | 2.5 s | `role="tab"` tabs and one `ul` at depth 7 | the post list sits deeper than the dump's depth cap; selectors not yet known. |
+| `/in/:slug/` | 2.5 s | `section`s at depth 3, `data-testid="lazy-column"`, `componentkey` names carrying `profile_top_card_…_lazy_anchor` | the profile sections are present; the dump did not reach their inner rows. |
+| `/jobs/view/:id/` | 2.5 s | `JobDetails_` component divs, **no `h1`** | the title is not an `h1`; the dump did not reach it. |
+| `/search/results/people/`, `/search/results/content/` | 2.5 s | only the outer wrapper and one section (`lazy-column`, 14 children) | the rows are deeper than the depth cap; selectors not yet known. |
+
+**Method note (a defect in my probe, not in the product):** the tree walk stops at depth 7, which is above where LinkedIn puts row content. Four pages therefore yielded no usable row markup. A third, 4-navigation run with an unbounded depth and a row-anchored dump is needed before writing those selectors; guessing would violate the project's own rule.
+
+**Established here:** invitations and saved jobs are slow-rendering, not absent; jobs.saved shows 6 rows at 5 s; nothing about the profile rows, company post cards, job detail fields, or the two search row shapes.
