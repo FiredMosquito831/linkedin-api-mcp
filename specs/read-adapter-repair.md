@@ -311,6 +311,6 @@ by FiredMosquito831
 | `/search/results/people/` | `main [role="listitem"]` | **FOUND — a real person card**: anchor, image, name and headline blocks, and a `componentkey` carrying a member URN. Row selector confirmed. |
 
 **Confirmed this round:** `companies.posts` rows = `main [role="article"]`; `search.people` rows = `main [role="listitem"]`.
-**Still unmeasured:** `jobs.get`/`jobs.apply-url` (title candidate only), `jobs.saved`, `invitations.received`/`sent`, `profile.skills`/`props.contact`, `companies.get`.
+**Still unmeasured:** `jobs.get`/`jobs.apply-url` (title candidate only), `jobs.saved`, `invitations.received`/`sent`, `profile.skills`/`profile.contact`, `companies.get`.
 
 **Method note:** an unqualified `ul` and an unqualified `section` both match navigation and header chrome before the content list. Future probes must anchor inside the content region or by a repeated-sibling signature, not by tag alone.
