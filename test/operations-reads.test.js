@@ -24,6 +24,10 @@ const ROUTES = {
   'https://www.linkedin.com/feed/update/urn:li:activity:123456789': 'posts.html',
   'https://www.linkedin.com/company/acme/': 'company.html',
   'https://www.linkedin.com/company/acme/posts/': 'company-posts.html',
+  'https://www.linkedin.com/company/globex/': 'company-no-main.html',
+  'https://www.linkedin.com/company/initech/': 'company-role-main.html',
+  'https://www.linkedin.com/company/umbrella/': 'company-section-header.html',
+  'https://www.linkedin.com/company/hooli/': 'company-no-heading.html',
   'https://www.linkedin.com/messaging/': 'messaging.html',
   'https://www.linkedin.com/messaging/thread/urn:li:mp-conversation:1001': 'thread.html',
   'https://www.linkedin.com/my-network/navigate/': 'connections.html',
@@ -37,6 +41,8 @@ const ROUTES = {
   'https://www.linkedin.com/jobs/saved/': 'saved-jobs.html',
   'https://www.linkedin.com/jobs/view/2000001': 'job.html',
   'https://www.linkedin.com/jobs/view/2000002': 'job-no-apply.html',
+  'https://www.linkedin.com/jobs/view/2000003': 'job-title-h2.html',
+  'https://www.linkedin.com/jobs/view/2000004': 'job-no-title.html',
   'https://www.linkedin.com/analytics/profile/': 'analytics.html',
   'https://www.linkedin.com/sales/ssi': 'analytics.html',
   'https://www.linkedin.com/sales/navigation/people': 'sales-leads.html',
@@ -437,6 +443,48 @@ test('companies.posts fails closed when the page has no article cards', async (t
   );
 });
 
+// Measured 2026-10-23: /company/<slug>/ renders fully with no <main> element.
+// Each fallback below has a fixture where it is the only candidate that returns
+// the right name; the page-level h1 decoys make a wrong fallback visibly fail.
+test('companies.get reads the name from the page-level h1 when there is no main, role=main or section', async (t) => {
+  const session = await openSession(browser);
+  t.after(() => session.close());
+  const company = await createReadAdapter(session).execute('companies.get', {
+    url: 'https://www.linkedin.com/company/globex/',
+  });
+  assert.equal(company.slug, 'globex');
+  assert.equal(company.name, 'Globex');
+  assert.deepEqual(company.followers, { value: 5000, text: '5K followers' });
+  assert.match(company.about, /platform rules/);
+});
+
+test('companies.get reads the name from [role="main"] when the page has no main element', async (t) => {
+  const session = await openSession(browser);
+  t.after(() => session.close());
+  const company = await createReadAdapter(session).execute('companies.get', {
+    url: 'https://www.linkedin.com/company/initech/',
+  });
+  assert.equal(company.name, 'Initech', 'the site h1 outside role="main" must not win');
+});
+
+test('companies.get reads the name from a section heading when there is no main or role=main', async (t) => {
+  const session = await openSession(browser);
+  t.after(() => session.close());
+  const company = await createReadAdapter(session).execute('companies.get', {
+    url: 'https://www.linkedin.com/company/umbrella/',
+  });
+  assert.equal(company.name, 'Umbrella', 'the site h1 before the header section must not win');
+});
+
+test('companies.get fails closed when the company page has no heading at all', async (t) => {
+  const session = await openSession(browser);
+  t.after(() => session.close());
+  await code(
+    createReadAdapter(session).execute('companies.get', { url: 'https://www.linkedin.com/company/hooli/' }),
+    'LAYOUT_UNSUPPORTED',
+  );
+});
+
 test('jobs.saved and jobs.get parse saved jobs and a job detail page', async (t) => {
   const session = await openSession(browser);
   t.after(() => session.close());
@@ -471,6 +519,37 @@ test('jobs.apply-url reads the apply link without clicking it; absent link is ho
   });
   assert.equal(withoutLink.applyUrl, null);
   assert.equal(withoutLink.note, 'apply_url_not_found');
+});
+
+// Measured 2026-10-23: the job title on /jobs/view/<id>/ is an h2 inside main.
+test('jobs.get reads an h2 job title inside main, not a later h2', async (t) => {
+  const session = await openSession(browser);
+  t.after(() => session.close());
+  const job = await createReadAdapter(session).execute('jobs.get', {
+    url: 'https://www.linkedin.com/jobs/view/2000003',
+  });
+  assert.equal(job.id, '2000003');
+  assert.equal(job.title, 'Principal Analyst');
+  assert.equal(job.company, 'Initech');
+  assert.match(job.description, /platform rules/);
+});
+
+test('jobs.apply-url accepts an h2 job title inside main and reads the apply link', async (t) => {
+  const session = await openSession(browser);
+  t.after(() => session.close());
+  const apply = await createReadAdapter(session).execute('jobs.apply-url', {
+    url: 'https://www.linkedin.com/jobs/view/2000003',
+  });
+  assert.equal(apply.applyUrl, 'https://initech.example/careers/apply/2000003');
+  assert.equal(apply.note, null);
+});
+
+test('jobs.get and jobs.apply-url fail closed when the only h2 sits outside main', async (t) => {
+  const session = await openSession(browser);
+  t.after(() => session.close());
+  const adapter = createReadAdapter(session);
+  await code(adapter.execute('jobs.get', { url: 'https://www.linkedin.com/jobs/view/2000004' }), 'LAYOUT_UNSUPPORTED');
+  await code(adapter.execute('jobs.apply-url', { url: 'https://www.linkedin.com/jobs/view/2000004' }), 'LAYOUT_UNSUPPORTED');
 });
 
 test('analytics parse real numbers; absent analytics data is null, not invented', async (t) => {
