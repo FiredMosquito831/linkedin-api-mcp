@@ -89,12 +89,21 @@ function classifyCounter(text) {
   return null;
 }
 
-async function textOf(scope, selectors, { required = false, label = 'field' } = {}) {
-  for (const selector of selectors) {
-    const locator = scope.locator(selector);
-    if (await locator.count() === 0) continue;
-    const raw = collapse(await locator.first().innerText({ timeout: 3000 }).catch(() => null));
-    if (raw) return raw.length > TEXT_LIMIT ? raw.slice(0, TEXT_LIMIT) : raw;
+// Optional bounded settle for a required single field: a page can render its
+// heading after domcontentloaded, so the candidate selectors are retried for up to
+// `settleMs` (same bound and step as findItems, no scrolling). The first pass runs
+// immediately, so a static page adds no delay. The default settleMs = 0 is one pass.
+async function textOf(scope, selectors, { required = false, label = 'field', settleMs = 0, stepMs = 200 } = {}) {
+  const deadline = Date.now() + settleMs;
+  for (;;) {
+    for (const selector of selectors) {
+      const locator = scope.locator(selector);
+      if (await locator.count() === 0) continue;
+      const raw = collapse(await locator.first().innerText({ timeout: 3000 }).catch(() => null));
+      if (raw) return raw.length > TEXT_LIMIT ? raw.slice(0, TEXT_LIMIT) : raw;
+    }
+    if (Date.now() >= deadline) break;
+    await new Promise((resolve) => setTimeout(resolve, stepMs));
   }
   if (required) throw layout(`Required DOM for ${label} was not found; this layout is not supported.`);
   return null;
@@ -793,7 +802,7 @@ async function runCompanyGet(ctx, page) {
   }
   return {
     slug: companySlug(ctx.url),
-    name: await textOf(page, COMPANY_NAME_SELECTORS, { required: true, label: 'company name' }),
+    name: await textOf(page, COMPANY_NAME_SELECTORS, { required: true, label: 'company name', settleMs: DOM_SETTLE_TIMEOUT }),
     about: await textOf(page, ['.org-about__text', '.org-about__subtitle']),
     followers,
   };
@@ -861,6 +870,7 @@ async function runJobGet(ctx, page) {
     title: await textOf(page, ['#job-title', 'h1.job-title', '.show-more-less-text__h3', 'h1', 'main h2'], {
       required: true,
       label: 'job title',
+      settleMs: DOM_SETTLE_TIMEOUT,
     }),
     company: await textOf(page, ['.job-cb__title', '.job-cb__link']),
     location: await textOf(page, ['.job-search-card-location', '.job-location']),
@@ -882,6 +892,7 @@ async function runJobApplyUrl(ctx, page) {
   await textOf(page, ['#job-title', 'h1.job-title', '.job-card-list__title', 'main h2'], {
     required: true,
     label: 'job page',
+    settleMs: DOM_SETTLE_TIMEOUT,
   });
   for (const selector of APPLY_LINK_SELECTORS) {
     const link = page.locator(selector);

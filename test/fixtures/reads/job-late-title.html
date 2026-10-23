@@ -1,0 +1,19 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><title>Job | LinkedIn</title></head>
+<body>
+<!-- The job title h2 inside main is added 1.2 s after load, the way a late SPA render
+     does. The apply link is static, so only the title depends on the settle. Synthetic. -->
+<main>
+  <a data-control-name="apply" href="https://lazyco.example/careers/apply/2000005">Apply</a>
+  <p class="show-more-less-text__showing-more-text">Description that renders with the page.</p>
+</main>
+<script>
+  setTimeout(function () {
+    var heading = document.createElement('h2');
+    heading.textContent = 'Lazy Engineer';
+    document.querySelector('main').prepend(heading);
+  }, 1200);
+</script>
+</body>
+</html>
