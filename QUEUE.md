@@ -8,7 +8,7 @@ Spec paths are under `specs/`. "User decisions" names the binding block inside t
 
 ## RUNNING
 
-**2026-10-23 — 0.3.5 and 0.3.6 SHIPPED AND VERIFIED. Nothing running.** 0.3.5 (PR #11) lets the live check cover every catalog read; its publication was blocked twice by Windows-only test failures on the merge commit and unblocked by PR #12 (`3b4a078`, bounded `rm` retries, no version bump). 0.3.6 (PR #13) parses company post cards and people-search rows. Registry `latest` = 0.3.6; both tarballs verified with provenance; releases v0.3.5 and v0.3.6 exist at their merge SHAs.
+**2026-10-23 — RUNNING: item 1, the two real defects.** One haiku implementer, worktree `.claude/worktrees/impl-company-job`, branch `fix/company-and-job-detail`, targeting 0.3.7: `companies.get` must read a page with no `<main>`; `jobs.get` must accept an `h2` title. The five likely-empty-state reads are **not** in that PR — they need an empty-state wording measurement first.
 
 **Live state after 0.3.6:** `search.people` 3 rows with title+url; `companies.posts` 3 rows with text only (no title, no permalink).
 
@@ -20,7 +20,7 @@ _(no production PR running)_
 
 | # | Item | Version / note | Spec + user decisions | What it does and why |
 |---|---|---|---|---|
-| 1 | **REMAINING READ FAMILIES** | PATCH per family, tier T1/T2, **measure live first** | `specs/read-adapter-repair.md` + USER DECISIONS 2026-10-23 | Still failing, each with what is known: `companies.get` (error-shaped page: no `<main>`, 41 `<code>` nodes; it passed on 10-22 with an unchanged selector), `companies.posts` title and permalink (rows parse, fields do not), `jobs.get` + `jobs.apply-url` (`JobDetails_` empty at 2.5 s; title is not an `<h1>`; a `main h2` candidate exists), `jobs.saved` (293 elements and 6 rows at 5 s, no `<main>`; the `ul` an unqualified selector hits is the site nav), `invitations.received` + `invitations.sent` (render without `<main>`; an unqualified `section` hits the page header), `profile.skills` + `profile.contact` (sections and `h2`s render, `data-section-id` does not exist, heading text did not match at 3 s). **Proof bar:** populated rows with the fields the operation promises, verified live, or a genuine restriction with evidence. |
+| 1 | **REMAINING READ FAMILIES** | RUNNING (0.3.7) for the two real defects; the rest needs a decision | `specs/read-adapter-repair.md` + PROBE 5 + USER DECISIONS 2026-10-23 | **Real defects, in flight:** `companies.get` (the page renders over a million characters with **no `<main>`**, and the reader requires `main h1`), `jobs.get`/`jobs.apply-url` (title is an `h2`, the reader wants `h1`). **Most likely empty states, not selector drift:** `jobs.saved`, `invitations.received`, `invitations.sent`, `profile.skills`, `profile.contact` — probe 5 found no rows at all on any of them (no job links, no list in any section, no skills or contact section). Proving that needs the empty-state wording measured, which means reading page text; that needs the user's decision. `companies.posts` title/permalink is a field-coverage gap, not row matching. |
 | 2 | **ROW PARSING ON A NON-EMPTY ACCOUNT** | PATCH if a fix is needed, tier T1, **HELD until the account has data** | none yet | `posts.list`, `inbox.list`, `inbox.search`, `connections.list` only ever proved the empty-state path. Cannot be done on demand. |
 
 ---
@@ -55,7 +55,7 @@ _(no production PR running)_
 
 ## THE USER'S OPEN QUESTIONS
 
-1. The read families still need live structure measurement one by one. Do you want another probe budget (about 5 navigations per missing family), or should the remaining families wait?
+1. **Empty-state wording.** Five reads (`jobs.saved`, both invitation reads, `profile.skills`, `profile.contact`) show no rows at all on this account, so they are probably empty rather than broken. Proving it means reading the page text to learn the empty-state wording — a step this project has avoided so far. Approve that measurement, or leave those five failing closed?
 2. When do you want the first live write verified, and which target/payload?
 3. Do you have a LinkedIn developer app available for the OAuth live test?
-4. Should the nine worktrees under `.claude/worktrees/` be removed, or kept?
+4. Should the ten worktrees under `.claude/worktrees/` be removed, or kept?
