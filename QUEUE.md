@@ -49,6 +49,7 @@ _(no production PR running)_
 
 ## THE USER'S OPEN QUESTIONS
 
-1. Should the 13 `LAYOUT_UNSUPPORTED` reads be repaired as one arc (investigator spec → per-family implementers), or re-measured first on a second account?
-2. When do you want the first live write verified, and which target/payload?
+1. The read-adapter arc is decided (family by family, search first) and the search family has shipped. **Open:** whether to do item 4 (let the live check cover all reads) before the remaining families, so each repair can be verified the moment it lands. Recommendation: yes, item 4 first.
+2. When do you want the first live write verified, and which target/payload? (`reactions.add`/`reactions.remove` was chosen.)
 3. Do you have a LinkedIn developer app available for the OAuth live test?
+4. Should the seven old `agent-*` worktrees and `impl-search-adapters` be removed, or kept?

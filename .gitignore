@@ -6,3 +6,6 @@ node_modules/
 .linkedin-api-mcp/
 *.local.json
 *.stackdump
+
+# Local backups of the operating manual (never committed)
+WORKING-NOTES.bak-*
