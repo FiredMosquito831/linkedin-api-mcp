@@ -1,0 +1,18 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><title>LinkedIn</title></head>
+<body>
+<!-- No h1 at first. A script adds the company name heading 1.2 s after load, the way a
+     late SPA render does, so one immediate count finds nothing. Synthetic. -->
+<main>
+  <p class="org-about__text">Lazy software within the platform rules.</p>
+</main>
+<script>
+  setTimeout(function () {
+    var heading = document.createElement('h1');
+    heading.textContent = 'Lazyco';
+    document.querySelector('main').prepend(heading);
+  }, 1200);
+</script>
+</body>
+</html>

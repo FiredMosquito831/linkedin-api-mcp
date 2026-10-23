@@ -1,7 +1,7 @@
 {
   "name": "linkedin",
   "displayName": "LinkedIn API & MCP",
-  "version": "0.3.7",
+  "version": "0.3.8",
   "license": "Apache-2.0",
   "description": "Official LinkedIn API CLI and library plus an MCP server that is capability-only by default: it lists no LinkedIn operations until the experimental option is on. While enabled, read and write operations become visible, and writes only prepare a payload that the operator approves and executes in the separate CLI.",
   "author": {

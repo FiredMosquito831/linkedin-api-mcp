@@ -485,6 +485,40 @@ test('companies.get fails closed when the company page has no heading at all', a
   );
 });
 
+// Measured 2026-10-23: a required name can render after domcontentloaded, and one
+// immediate count used to throw. The required field now gets the bounded settle.
+test('companies.get waits for a required name that renders after a short delay', async (t) => {
+  const session = await openSession(browser, {
+    routes: { 'https://www.linkedin.com/company/lazyco/': 'company-late-name.html' },
+  });
+  t.after(() => session.close());
+  const company = await createReadAdapter(session).execute('companies.get', {
+    url: 'https://www.linkedin.com/company/lazyco/',
+  });
+  assert.equal(company.slug, 'lazyco');
+  assert.equal(company.name, 'Lazyco');
+});
+
+// Runs the read, expects the error code, and returns the wall time in milliseconds.
+async function timedCode(run, expected) {
+  const started = Date.now();
+  await code(run(), expected);
+  return Date.now() - started;
+}
+
+test('companies.get fails closed within the settle bound when no heading ever renders', async (t) => {
+  const session = await openSession(browser);
+  t.after(() => session.close());
+  const adapter = createReadAdapter(session);
+  const elapsed = await timedCode(
+    () => adapter.execute('companies.get', { url: 'https://www.linkedin.com/company/hooli/' }),
+    'LAYOUT_UNSUPPORTED',
+  );
+  // The settle waits out DOM_SETTLE_TIMEOUT (5000 ms) and no longer than the bound.
+  assert.ok(elapsed >= 4500, `the settle should wait out its bound, but failed after ${elapsed} ms`);
+  assert.ok(elapsed < 9000, `the settle must stay bounded, but took ${elapsed} ms`);
+});
+
 test('jobs.saved and jobs.get parse saved jobs and a job detail page', async (t) => {
   const session = await openSession(browser);
   t.after(() => session.close());
@@ -550,6 +584,31 @@ test('jobs.get and jobs.apply-url fail closed when the only h2 sits outside main
   const adapter = createReadAdapter(session);
   await code(adapter.execute('jobs.get', { url: 'https://www.linkedin.com/jobs/view/2000004' }), 'LAYOUT_UNSUPPORTED');
   await code(adapter.execute('jobs.apply-url', { url: 'https://www.linkedin.com/jobs/view/2000004' }), 'LAYOUT_UNSUPPORTED');
+});
+
+test('jobs.get and jobs.apply-url wait for a required job title that renders after a short delay', async (t) => {
+  const session = await openSession(browser, {
+    routes: { 'https://www.linkedin.com/jobs/view/2000005': 'job-late-title.html' },
+  });
+  t.after(() => session.close());
+  const adapter = createReadAdapter(session);
+  const job = await adapter.execute('jobs.get', { url: 'https://www.linkedin.com/jobs/view/2000005' });
+  assert.equal(job.title, 'Lazy Engineer');
+  const apply = await adapter.execute('jobs.apply-url', { url: 'https://www.linkedin.com/jobs/view/2000005' });
+  assert.equal(apply.applyUrl, 'https://lazyco.example/careers/apply/2000005');
+  assert.equal(apply.note, null);
+});
+
+test('jobs.apply-url fails closed within the settle bound when no job title ever renders', async (t) => {
+  const session = await openSession(browser);
+  t.after(() => session.close());
+  const adapter = createReadAdapter(session);
+  const elapsed = await timedCode(
+    () => adapter.execute('jobs.apply-url', { url: 'https://www.linkedin.com/jobs/view/2000004' }),
+    'LAYOUT_UNSUPPORTED',
+  );
+  assert.ok(elapsed >= 4500, `the settle should wait out its bound, but failed after ${elapsed} ms`);
+  assert.ok(elapsed < 9000, `the settle must stay bounded, but took ${elapsed} ms`);
 });
 
 test('analytics parse real numbers; absent analytics data is null, not invented', async (t) => {
